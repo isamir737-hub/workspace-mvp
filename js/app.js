@@ -85,7 +85,7 @@ function closeMobileSidebar() {
 function renderRoute(route) {
   setActiveNav(route);
   if (route === 'kanban') {
-    pageTitle.textContent = 'Kanban';
+    pageTitle.textContent = 'Задачи';
     kanban.renderKanbanPage(mainContent);
     if (pendingCreateTask) {
       pendingCreateTask = false;

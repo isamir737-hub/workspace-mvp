@@ -40,7 +40,14 @@ let editingTaskId = null;
 let notificationPermissionAsked = false;
 let formAttachments = [];
 let formTags = [];
-let boardEl = null; // контейнер доски, если страница #/kanban сейчас смонтирована
+let boardEl = null; // контейнер доски (грид колонок), если страница #/kanban сейчас смонтирована
+
+// ---------- Search & Filters (только влияют на отображение, не на данные) ----------
+
+let filterState = { assigneeId: '', priority: '', tag: '', onlyMine: false, search: '' };
+let filtersPanelOpen = false;
+let searchInputEl, filtersToggleBtn, filtersDotEl, filtersPanelEl,
+  filterAssigneeEl, filterPriorityEl, filterTagEl, filterOnlyMineEl, clearFiltersBtn;
 
 // ---------- Drawer: DOM-ссылки (статические элементы index.html) ----------
 
@@ -82,15 +89,27 @@ export function initKanbanModule() {
   wireAttachmentEvents();
   wireCommentEvents();
   checkReminders();
+  // Напоминания проверяются отдельно от полной перерисовки доски: полный renderBoard()
+  // каждые 30с был бы лишней работой (сбрасывает scroll/анимации) ради того, что реально
+  // меняется со временем — только visual-состояние дедлайна (overdue/soon). Поэтому тут
+  // только дешёвая точечная правка уже отрисованных карточек, без пересборки DOM.
   setInterval(() => {
     checkReminders();
-    renderBoard();
+    updateDeadlineVisuals();
   }, 30000);
 }
 
 export function renderKanbanPage(container) {
-  boardEl = container;
-  boardEl.className = 'main-content board';
+  container.className = 'main-content kanban-page';
+  container.innerHTML = '';
+  container.appendChild(buildPageHeader());
+  container.appendChild(buildFiltersPanel());
+
+  const boardWrap = document.createElement('div');
+  boardWrap.className = 'board';
+  container.appendChild(boardWrap);
+  boardEl = boardWrap;
+
   renderBoard();
 }
 
@@ -121,13 +140,245 @@ export function setOnDrawerClosed(fn) {
   onDrawerClosed = fn;
 }
 
+// ---------- Page header: заголовок, поиск, фильтры, "+ Новая задача" ----------
+
+function buildPageHeader() {
+  const header = document.createElement('div');
+  header.className = 'kanban-header';
+
+  const left = document.createElement('div');
+  const title = document.createElement('h2');
+  title.className = 'kanban-header-title';
+  title.textContent = 'Задачи';
+  left.appendChild(title);
+  const subtitle = document.createElement('p');
+  subtitle.className = 'kanban-header-subtitle';
+  subtitle.textContent = 'Управляйте текущей работой команды.';
+  left.appendChild(subtitle);
+  header.appendChild(left);
+
+  const toolbar = document.createElement('div');
+  toolbar.className = 'kanban-toolbar';
+
+  const searchWrap = document.createElement('label');
+  searchWrap.className = 'kanban-search';
+  searchWrap.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>';
+  searchInputEl = document.createElement('input');
+  searchInputEl.type = 'search';
+  searchInputEl.placeholder = 'Поиск задач...';
+  searchInputEl.setAttribute('aria-label', 'Поиск задач');
+  searchInputEl.value = filterState.search;
+  searchInputEl.addEventListener('input', () => {
+    filterState.search = searchInputEl.value.trim().toLowerCase();
+    onFiltersChanged();
+  });
+  searchWrap.appendChild(searchInputEl);
+  toolbar.appendChild(searchWrap);
+
+  filtersToggleBtn = document.createElement('button');
+  filtersToggleBtn.type = 'button';
+  filtersToggleBtn.className = 'btn-secondary kanban-filters-toggle';
+  filtersToggleBtn.innerHTML = '<svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="4 4 20 4 14 12.5 14 19 10 21 10 12.5 4 4"/></svg> Фильтры';
+  filtersDotEl = document.createElement('span');
+  filtersDotEl.className = 'filters-dot';
+  filtersDotEl.hidden = !isFiltersActive();
+  filtersToggleBtn.appendChild(filtersDotEl);
+  filtersToggleBtn.setAttribute('aria-expanded', String(filtersPanelOpen));
+  filtersToggleBtn.addEventListener('click', () => {
+    filtersPanelOpen = !filtersPanelOpen;
+    filtersPanelEl.hidden = !filtersPanelOpen;
+    filtersToggleBtn.setAttribute('aria-expanded', String(filtersPanelOpen));
+  });
+  toolbar.appendChild(filtersToggleBtn);
+
+  const newTaskBtn = document.createElement('button');
+  newTaskBtn.type = 'button';
+  newTaskBtn.className = 'btn-primary';
+  newTaskBtn.innerHTML = '<span class="plus" aria-hidden="true">+</span> Новая задача';
+  newTaskBtn.addEventListener('click', () => openCreateModal());
+  toolbar.appendChild(newTaskBtn);
+
+  header.appendChild(toolbar);
+  return header;
+}
+
+function buildFilterSelectField(labelText, options, selectedValue, onChange) {
+  const wrap = document.createElement('label');
+  wrap.className = 'filter-field';
+  const labelSpan = document.createElement('span');
+  labelSpan.className = 'filter-field-label';
+  labelSpan.textContent = labelText;
+  wrap.appendChild(labelSpan);
+  const select = document.createElement('select');
+  for (const opt of options) {
+    const optionEl = document.createElement('option');
+    optionEl.value = opt.value;
+    optionEl.textContent = opt.label;
+    select.appendChild(optionEl);
+  }
+  select.value = selectedValue;
+  select.addEventListener('change', () => onChange(select.value));
+  wrap.appendChild(select);
+  return { wrap, selectEl: select };
+}
+
+function buildFiltersPanel() {
+  const panel = document.createElement('div');
+  panel.className = 'kanban-filters-panel';
+  panel.hidden = !filtersPanelOpen;
+  filtersPanelEl = panel;
+
+  const currentUser = store.getCurrentUser();
+  const companyUsers = currentUser ? store.getUsers().filter(u => u.companyId === currentUser.companyId) : [];
+
+  const assigneeField = buildFilterSelectField(
+    'Исполнитель',
+    [{ value: '', label: 'Все' }].concat(companyUsers.map(u => ({ value: u.id, label: u.name }))),
+    filterState.assigneeId,
+    (value) => { filterState.assigneeId = value; onFiltersChanged(); }
+  );
+  filterAssigneeEl = assigneeField.selectEl;
+  panel.appendChild(assigneeField.wrap);
+
+  const priorityField = buildFilterSelectField(
+    'Приоритет',
+    [
+      { value: '', label: 'Все' },
+      { value: 'low', label: 'Low' },
+      { value: 'medium', label: 'Medium' },
+      { value: 'high', label: 'High' },
+      { value: 'critical', label: 'Critical' },
+    ],
+    filterState.priority,
+    (value) => { filterState.priority = value; onFiltersChanged(); }
+  );
+  filterPriorityEl = priorityField.selectEl;
+  panel.appendChild(priorityField.wrap);
+
+  const tagField = buildFilterSelectField(
+    'Тег',
+    [{ value: '', label: 'Все' }].concat(getDistinctTags().map(t => ({ value: t, label: t }))),
+    filterState.tag,
+    (value) => { filterState.tag = value; onFiltersChanged(); }
+  );
+  filterTagEl = tagField.selectEl;
+  panel.appendChild(tagField.wrap);
+
+  const mineWrap = document.createElement('label');
+  mineWrap.className = 'filter-checkbox';
+  filterOnlyMineEl = document.createElement('input');
+  filterOnlyMineEl.type = 'checkbox';
+  filterOnlyMineEl.checked = filterState.onlyMine;
+  filterOnlyMineEl.addEventListener('change', () => {
+    filterState.onlyMine = filterOnlyMineEl.checked;
+    onFiltersChanged();
+  });
+  mineWrap.appendChild(filterOnlyMineEl);
+  mineWrap.appendChild(document.createTextNode('Только мои'));
+  panel.appendChild(mineWrap);
+
+  clearFiltersBtn = document.createElement('button');
+  clearFiltersBtn.type = 'button';
+  clearFiltersBtn.className = 'btn-secondary btn-small filters-clear-btn';
+  clearFiltersBtn.textContent = 'Сбросить';
+  clearFiltersBtn.hidden = !isFiltersActive();
+  clearFiltersBtn.addEventListener('click', () => {
+    filterState = { assigneeId: '', priority: '', tag: '', onlyMine: false, search: '' };
+    filterAssigneeEl.value = '';
+    filterPriorityEl.value = '';
+    filterTagEl.value = '';
+    filterOnlyMineEl.checked = false;
+    searchInputEl.value = '';
+    onFiltersChanged();
+  });
+  panel.appendChild(clearFiltersBtn);
+
+  return panel;
+}
+
+function getDistinctTags() {
+  const set = new Set();
+  for (const task of store.getTasks()) {
+    for (const tag of (task.tags || [])) set.add(tag);
+  }
+  return Array.from(set).sort((a, b) => a.localeCompare(b));
+}
+
+// Список тегов может устареть, если задачи с уникальными тегами были отредактированы/удалены
+// пока страница открыта — обновляем options существующего <select>, не трогая остальной UI.
+function refreshTagFilterOptions() {
+  if (!filterTagEl) return;
+  const current = filterTagEl.value;
+  const tags = getDistinctTags();
+  filterTagEl.innerHTML = '';
+  const allOption = document.createElement('option');
+  allOption.value = '';
+  allOption.textContent = 'Все';
+  filterTagEl.appendChild(allOption);
+  for (const tag of tags) {
+    const option = document.createElement('option');
+    option.value = tag;
+    option.textContent = tag;
+    filterTagEl.appendChild(option);
+  }
+  if (current && !tags.includes(current)) {
+    filterState.tag = '';
+    filterTagEl.value = '';
+  } else {
+    filterTagEl.value = current;
+  }
+}
+
+// Проверяет всё, кроме статуса колонки (тот проверяется отдельно при разборе по колонкам).
+function taskMatchesFilters(task) {
+  const currentUser = store.getCurrentUser();
+  if (filterState.onlyMine && currentUser) {
+    const isMine = task.assigneeId ? task.assigneeId === currentUser.id : task.creatorId === currentUser.id;
+    if (!isMine) return false;
+  }
+  if (filterState.assigneeId && task.assigneeId !== filterState.assigneeId) return false;
+  if (filterState.priority && (task.priority || 'medium') !== filterState.priority) return false;
+  if (filterState.tag && !(task.tags || []).includes(filterState.tag)) return false;
+  if (filterState.search) {
+    const haystack = [task.title, task.description, ...(task.tags || [])].join(' ').toLowerCase();
+    if (!haystack.includes(filterState.search)) return false;
+  }
+  return true;
+}
+
+function isFiltersActive() {
+  return !!(filterState.assigneeId || filterState.priority || filterState.tag || filterState.onlyMine || filterState.search);
+}
+
+function onFiltersChanged() {
+  if (filtersDotEl) filtersDotEl.hidden = !isFiltersActive();
+  if (clearFiltersBtn) clearFiltersBtn.hidden = !isFiltersActive();
+  renderBoard();
+}
+
+function buildEmptyColumnState(isFilteredEmpty) {
+  const wrap = document.createElement('div');
+  wrap.className = 'empty-hint';
+  const title = document.createElement('div');
+  title.className = 'empty-hint-title';
+  title.textContent = 'Нет задач';
+  wrap.appendChild(title);
+  const helper = document.createElement('div');
+  helper.className = 'empty-hint-helper';
+  helper.textContent = isFilteredEmpty
+    ? 'Ничего не найдено — попробуйте изменить фильтры.'
+    : 'Перетащите сюда карточку или создайте новую.';
+  wrap.appendChild(helper);
+  return wrap;
+}
+
 // ---------- Рендеринг доски ----------
 
 function renderBoard() {
-  // boardEl (#mainContent) is a persistent shell element reused by every route,
-  // so besides being attached it must still be showing the kanban page right now —
-  // otherwise the periodic reminder tick would overwrite whatever page is active.
-  if (!boardEl || !document.body.contains(boardEl) || !boardEl.classList.contains('board')) return;
+  // boardEl — контейнер грида колонок, создаётся заново при каждом заходе на #/kanban
+  // (renderKanbanPage) и удаляется из DOM при уходе на другую страницу, поэтому простой
+  // проверки attachment достаточно, чтобы periodic-тик не трогал чужую страницу.
+  if (!boardEl || !document.body.contains(boardEl)) return;
   const board = boardEl;
   board.innerHTML = '';
 
@@ -161,23 +412,43 @@ function renderBoard() {
   }
 
   setupDropZones();
+  refreshTagFilterOptions();
 
-  const tasks = store.getTasks();
+  const filtersActive = isFiltersActive();
   for (const col of COLUMNS) {
     const container = document.getElementById('cards-' + col.id);
-    const list = tasks.filter(t => t.status === col.id);
-    document.getElementById('count-' + col.id).textContent = list.length;
+    const allInStatus = store.getTasks().filter(t => t.status === col.id);
+    const visible = allInStatus.filter(taskMatchesFilters);
+    document.getElementById('count-' + col.id).textContent = visible.length;
 
-    if (list.length === 0) {
-      const hint = document.createElement('div');
-      hint.className = 'empty-hint';
-      hint.textContent = 'Пусто';
-      container.appendChild(hint);
+    if (visible.length === 0) {
+      container.appendChild(buildEmptyColumnState(filtersActive && allInStatus.length > 0));
       continue;
     }
 
-    for (const task of list) {
+    for (const task of visible) {
       container.appendChild(buildCard(task));
+    }
+  }
+}
+
+// Лёгкое обновление visual deadline-состояния уже отрисованных карточек (overdue/soon),
+// без полной перерисовки доски. Вызывается периодическим таймером вместо renderBoard().
+function updateDeadlineVisuals() {
+  if (!boardEl || !document.body.contains(boardEl)) return;
+  const cardEls = boardEl.querySelectorAll('.card[data-id]');
+  for (const cardEl of cardEls) {
+    const task = store.getTask(cardEl.dataset.id);
+    if (!task) continue;
+    const info = getDeadlineInfo(task);
+    cardEl.classList.toggle('is-overdue', info.state === 'overdue');
+    cardEl.classList.toggle('is-soon', info.state === 'soon');
+    const badge = cardEl.querySelector('.deadline-badge');
+    if (badge) {
+      badge.classList.remove('overdue', 'deadline-soon');
+      if (info.state === 'overdue') { badge.classList.add('overdue'); badge.textContent = 'Просрочено: ' + formatDeadline(task.deadline); }
+      else if (info.state === 'soon') { badge.classList.add('deadline-soon'); badge.textContent = 'Скоро: ' + formatDeadline(task.deadline); }
+      else { badge.textContent = formatDeadline(task.deadline); }
     }
   }
 }
@@ -242,7 +513,7 @@ function buildCard(task) {
 
   if (task.deadline) {
     const badge = document.createElement('span');
-    badge.className = 'badge';
+    badge.className = 'badge deadline-badge';
     if (deadlineInfo.state === 'overdue') { badge.classList.add('overdue'); badge.textContent = 'Просрочено: ' + formatDeadline(task.deadline); }
     else if (deadlineInfo.state === 'soon') { badge.classList.add('deadline-soon'); badge.textContent = 'Скоро: ' + formatDeadline(task.deadline); }
     else { badge.textContent = formatDeadline(task.deadline); }
@@ -736,7 +1007,10 @@ function renderCommentsList(comments) {
     item.appendChild(text);
     const time = document.createElement('div');
     time.className = 'comment-time';
-    time.textContent = formatDeadline(c.createdAt);
+    // Старые комментарии (Этап 1-3) сохранены без authorId — просто показываем дату,
+    // без падения/ошибок.
+    const author = c.authorId ? store.getUserById(c.authorId) : null;
+    time.textContent = (author ? author.name + ' · ' : '') + formatDeadline(c.createdAt);
     item.appendChild(time);
     commentsList.appendChild(item);
   }
@@ -749,9 +1023,11 @@ function wireCommentEvents() {
     if (!text) return;
     const task = store.getTask(editingTaskId);
     if (!task) return;
+    const currentUser = store.getCurrentUser();
     const comments = (task.comments || []).concat([{
       id: store.generateId('comment'),
       text,
+      authorId: currentUser ? currentUser.id : null,
       createdAt: new Date().toISOString(),
     }]);
     const { ok } = store.updateTask(editingTaskId, { comments });
