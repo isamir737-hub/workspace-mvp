@@ -33,17 +33,21 @@ const ALLOWED_ATTACHMENTS = {
 };
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024; // 5 МБ на файл
 
+const PRIORITY_LABELS = { low: 'Low', medium: 'Medium', high: 'High', critical: 'Critical' };
+const ROLE_LABELS = { owner: 'Owner', manager: 'Manager', employee: 'Employee' };
+
 let editingTaskId = null;
 let notificationPermissionAsked = false;
 let formAttachments = [];
+let formTags = [];
 let boardEl = null; // контейнер доски, если страница #/kanban сейчас смонтирована
 
 // ---------- Drawer: DOM-ссылки (статические элементы index.html) ----------
 
 let modalOverlay, modalTitle, taskForm, fieldTitle, fieldDescription, fieldDeadline,
-  fieldReminder, fieldCollaborator, collaboratorHint, fieldAttachments, attachBtn,
-  attachmentList, commentsSection, commentsList, fieldNewComment, addCommentBtn,
-  deleteBtn, cancelBtn, closeDrawerBtn;
+  fieldReminder, fieldAssignee, fieldPriority, fieldTagInput, addTagBtn, tagList,
+  fieldAttachments, attachBtn, attachmentList, commentsSection, commentsList,
+  fieldNewComment, addCommentBtn, deleteBtn, cancelBtn, closeDrawerBtn;
 
 function cacheDrawerRefs() {
   modalOverlay = document.getElementById('modalOverlay');
@@ -53,8 +57,11 @@ function cacheDrawerRefs() {
   fieldDescription = document.getElementById('fieldDescription');
   fieldDeadline = document.getElementById('fieldDeadline');
   fieldReminder = document.getElementById('fieldReminder');
-  fieldCollaborator = document.getElementById('fieldCollaborator');
-  collaboratorHint = document.getElementById('collaboratorHint');
+  fieldAssignee = document.getElementById('fieldAssignee');
+  fieldPriority = document.getElementById('fieldPriority');
+  fieldTagInput = document.getElementById('fieldTagInput');
+  addTagBtn = document.getElementById('addTagBtn');
+  tagList = document.getElementById('tagList');
   fieldAttachments = document.getElementById('fieldAttachments');
   attachBtn = document.getElementById('attachBtn');
   attachmentList = document.getElementById('attachmentList');
@@ -175,12 +182,32 @@ function renderBoard() {
   }
 }
 
-function getAssigneeDisplayEmail(task) {
+function initialsFromName(name) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase();
+}
+
+// Строит avatar-элемент исполнителя: приоритет — реальный User (assigneeId),
+// иначе (не мигрированные старые задачи) — legacyCollaboratorEmail. Новые задачи
+// всегда сохраняют assigneeId, legacyCollaboratorEmail используется только для миграции.
+function buildAssigneeAvatar(task) {
   if (task.assigneeId) {
     const user = store.getUserById(task.assigneeId);
-    if (user) return user.email;
+    if (user) {
+      const avatar = document.createElement('div');
+      avatar.className = 'avatar';
+      avatar.textContent = initialsFromName(user.name);
+      avatar.title = user.name;
+      return avatar;
+    }
   }
-  return task.legacyCollaboratorEmail || null;
+  if (task.legacyCollaboratorEmail) {
+    const avatar = document.createElement('div');
+    avatar.className = 'avatar';
+    avatar.textContent = emailInitials(task.legacyCollaboratorEmail);
+    avatar.title = task.legacyCollaboratorEmail;
+    return avatar;
+  }
+  return null;
 }
 
 function buildCard(task) {
@@ -199,14 +226,8 @@ function buildCard(task) {
   title.className = 'card-title';
   title.textContent = task.title;
   top.appendChild(title);
-  const assigneeEmail = getAssigneeDisplayEmail(task);
-  if (assigneeEmail) {
-    const avatar = document.createElement('div');
-    avatar.className = 'avatar';
-    avatar.textContent = emailInitials(assigneeEmail);
-    avatar.title = assigneeEmail;
-    top.appendChild(avatar);
-  }
+  const avatar = buildAssigneeAvatar(task);
+  if (avatar) top.appendChild(avatar);
   card.appendChild(top);
 
   if (task.description) {
@@ -235,7 +256,33 @@ function buildCard(task) {
     meta.appendChild(rb);
   }
 
+  const priorityKey = task.priority || 'medium';
+  const priorityBadge = document.createElement('span');
+  priorityBadge.className = 'priority-badge priority-' + priorityKey;
+  priorityBadge.textContent = PRIORITY_LABELS[priorityKey] || priorityKey;
+  meta.appendChild(priorityBadge);
+
   if (meta.children.length > 0) card.appendChild(meta);
+
+  const tags = task.tags || [];
+  if (tags.length > 0) {
+    const tagsRow = document.createElement('div');
+    tagsRow.className = 'card-tags';
+    const visible = tags.slice(0, 2);
+    for (const tag of visible) {
+      const chip = document.createElement('span');
+      chip.className = 'tag-chip';
+      chip.textContent = tag;
+      tagsRow.appendChild(chip);
+    }
+    if (tags.length > visible.length) {
+      const more = document.createElement('span');
+      more.className = 'tag-chip tag-chip-more';
+      more.textContent = '+' + (tags.length - visible.length);
+      tagsRow.appendChild(more);
+    }
+    card.appendChild(tagsRow);
+  }
 
   const attachmentsCount = (task.attachments || []).length;
   const commentsCount = (task.comments || []).length;
@@ -336,8 +383,105 @@ function getExtension(filename) {
   return idx === -1 ? '' : filename.slice(idx).toLowerCase();
 }
 
-function isValidEmail(value) {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+// ---------- Demo-only permissions (UI-level, не настоящая безопасность) ----------
+
+// Owner может назначать задачу любому сотруднику компании; Manager — себе и Employee;
+// Employee — только себе.
+function getAssignableUsers(currentUser) {
+  const companyUsers = store.getUsers().filter(u => u.companyId === currentUser.companyId);
+  if (currentUser.role === 'owner') return companyUsers;
+  if (currentUser.role === 'manager') {
+    return companyUsers.filter(u => u.id === currentUser.id || u.role === 'employee');
+  }
+  return companyUsers.filter(u => u.id === currentUser.id);
+}
+
+// Значение <option>, представляющее мигрированную legacy-задачу, у которой ещё нет
+// настоящего assigneeId (только legacyCollaboratorEmail). Не является реальным user.id —
+// submit-обработчик не должен сохранять его как assigneeId.
+const LEGACY_UNASSIGNED_VALUE = '__legacy_unassigned__';
+
+// task === null в режиме создания. В режиме редактирования передаётся вся задача,
+// чтобы можно было отличить «нет assigneeId вообще» (новый workflow, дефолт — «Я»)
+// от «мигрированная задача с legacyCollaboratorEmail, но без assigneeId» (не подставлять
+// текущего пользователя молча — иначе legacy-данные тихо перезаписываются при сохранении).
+function populateAssigneeOptions(task) {
+  const currentUser = store.getCurrentUser();
+  fieldAssignee.innerHTML = '';
+  if (!currentUser) return;
+
+  const selectedUserId = task ? task.assigneeId : null;
+  const legacyEmail = task ? task.legacyCollaboratorEmail : null;
+
+  let assignable = getAssignableUsers(currentUser);
+  // При редактировании уже назначенного пользователя, которого текущая demo-роль
+  // больше не имеет права выбрать заново, всё равно показываем его в списке —
+  // иначе drawer тихо потерял бы существующее назначение.
+  if (selectedUserId && !assignable.some(u => u.id === selectedUserId)) {
+    const existing = store.getUserById(selectedUserId);
+    if (existing) assignable = assignable.concat([existing]);
+  }
+
+  if (!selectedUserId && legacyEmail) {
+    const legacyOption = document.createElement('option');
+    legacyOption.value = LEGACY_UNASSIGNED_VALUE;
+    legacyOption.textContent = 'Не назначен / legacy: ' + legacyEmail;
+    fieldAssignee.appendChild(legacyOption);
+  }
+
+  const meOption = document.createElement('option');
+  meOption.value = currentUser.id;
+  meOption.textContent = 'Я (' + currentUser.name + ')';
+  fieldAssignee.appendChild(meOption);
+
+  for (const user of assignable) {
+    if (user.id === currentUser.id) continue; // уже показан как «Я»
+    const option = document.createElement('option');
+    option.value = user.id;
+    option.textContent = user.name + ' (' + (ROLE_LABELS[user.role] || user.role) + ')';
+    fieldAssignee.appendChild(option);
+  }
+
+  if (selectedUserId && assignable.some(u => u.id === selectedUserId)) {
+    fieldAssignee.value = selectedUserId;
+  } else if (!selectedUserId && legacyEmail) {
+    fieldAssignee.value = LEGACY_UNASSIGNED_VALUE;
+  } else {
+    fieldAssignee.value = currentUser.id;
+  }
+}
+
+// ---------- Теги ----------
+
+function renderTagList() {
+  tagList.innerHTML = '';
+  for (const tag of formTags) {
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    chip.textContent = tag;
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.className = 'tag-chip-remove';
+    remove.textContent = '✕';
+    remove.title = 'Удалить тег';
+    remove.addEventListener('click', () => {
+      formTags = formTags.filter(t => t !== tag);
+      renderTagList();
+    });
+    chip.appendChild(remove);
+    tagList.appendChild(chip);
+  }
+}
+
+function addTagFromInput() {
+  const value = fieldTagInput.value.trim();
+  if (!value) return;
+  const exists = formTags.some(t => t.toLowerCase() === value.toLowerCase());
+  if (!exists) {
+    formTags.push(value);
+    renderTagList();
+  }
+  fieldTagInput.value = '';
 }
 
 // ---------- Панель создания/редактирования ----------
@@ -345,10 +489,13 @@ function isValidEmail(value) {
 function openCreateModal() {
   editingTaskId = null;
   formAttachments = [];
+  formTags = [];
   modalTitle.textContent = 'Новая задача';
   taskForm.reset();
-  collaboratorHint.textContent = '';
-  collaboratorHint.classList.remove('error');
+  populateAssigneeOptions(null);
+  // ^ null => create-mode: только реальные пользователи, дефолт «Я», без legacy-варианта.
+  fieldPriority.value = 'medium';
+  renderTagList();
   renderAttachmentList();
   commentsSection.hidden = true;
   deleteBtn.hidden = true;
@@ -361,14 +508,15 @@ function openEditModal(id) {
   if (!task) return;
   editingTaskId = id;
   formAttachments = (task.attachments || []).slice();
+  formTags = (task.tags || []).slice();
   modalTitle.textContent = 'Редактировать задачу';
   fieldTitle.value = task.title;
   fieldDescription.value = task.description || '';
   fieldDeadline.value = task.deadline ? toLocalInputValue(task.deadline) : '';
   fieldReminder.value = task.reminderMinutes !== null && task.reminderMinutes !== undefined ? String(task.reminderMinutes) : '';
-  fieldCollaborator.value = getAssigneeDisplayEmail(task) || '';
-  collaboratorHint.textContent = '';
-  collaboratorHint.classList.remove('error');
+  populateAssigneeOptions(task);
+  fieldPriority.value = task.priority || 'medium';
+  renderTagList();
   renderAttachmentList();
   commentsSection.hidden = false;
   renderCommentsList(task.comments || []);
@@ -382,6 +530,7 @@ function closeModal() {
   modalOverlay.hidden = true;
   editingTaskId = null;
   formAttachments = [];
+  formTags = [];
   if (onDrawerClosed) onDrawerClosed();
 }
 
@@ -401,17 +550,11 @@ function wireDrawerEvents() {
     if (e.key === 'Escape' && !modalOverlay.hidden) closeModal();
   });
 
-  fieldCollaborator.addEventListener('input', () => {
-    const value = fieldCollaborator.value.trim();
-    if (!value) {
-      collaboratorHint.textContent = '';
-      collaboratorHint.classList.remove('error');
-    } else if (!isValidEmail(value)) {
-      collaboratorHint.textContent = 'Похоже, это не email — проверьте формат (например, name@company.com)';
-      collaboratorHint.classList.add('error');
-    } else {
-      collaboratorHint.textContent = '';
-      collaboratorHint.classList.remove('error');
+  addTagBtn.addEventListener('click', addTagFromInput);
+  fieldTagInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault();
+      addTagFromInput();
     }
   });
 
@@ -428,19 +571,16 @@ function wireDrawerEvents() {
     const title = fieldTitle.value.trim();
     if (!title) { fieldTitle.focus(); return; }
 
-    const collaboratorRaw = fieldCollaborator.value.trim();
-    if (collaboratorRaw && !isValidEmail(collaboratorRaw)) {
-      collaboratorHint.textContent = 'Исправьте email соисполнителя перед сохранением';
-      collaboratorHint.classList.add('error');
-      fieldCollaborator.focus();
-      return;
-    }
-    const matchedUser = collaboratorRaw ? store.getUserByEmail(collaboratorRaw) : null;
-    const assigneeId = matchedUser ? matchedUser.id : null;
-    const legacyCollaboratorEmail = (collaboratorRaw && !matchedUser) ? collaboratorRaw : null;
+    const assigneeRaw = fieldAssignee.value;
+    if (!assigneeRaw) { fieldAssignee.focus(); return; }
 
     const deadlineRaw = fieldDeadline.value;
-    const deadlineIso = deadlineRaw ? new Date(deadlineRaw).toISOString() : null;
+    let deadlineIso = null;
+    if (deadlineRaw) {
+      const parsed = new Date(deadlineRaw);
+      if (isNaN(parsed.getTime())) { fieldDeadline.focus(); return; }
+      deadlineIso = parsed.toISOString();
+    }
     const reminderRaw = fieldReminder.value;
     const reminderMinutes = (reminderRaw !== '' && deadlineIso) ? Number(reminderRaw) : null;
 
@@ -450,16 +590,34 @@ function wireDrawerEvents() {
       deadline: deadlineIso,
       reminderMinutes,
       reminderShown: false, // изменили дедлайн/напоминание — можно показать снова
-      assigneeId,
-      legacyCollaboratorEmail,
+      priority: fieldPriority.value,
+      tags: formTags.slice(),
       attachments: formAttachments,
     };
+
+    if (assigneeRaw === LEGACY_UNASSIGNED_VALUE) {
+      // Пользователь не выбрал нового исполнителя для мигрированной legacy-задачи —
+      // не трогаем assigneeId/legacyCollaboratorEmail, чтобы не потерять данные.
+    } else {
+      // Явный выбор реального исполнителя (в т.ч. при создании — здесь этот вариант
+      // всегда реальный user.id, т.к. legacy-опция появляется только при редактировании).
+      patch.assigneeId = assigneeRaw;
+      patch.legacyCollaboratorEmail = null;
+    }
 
     let result;
     if (editingTaskId) {
       result = store.updateTask(editingTaskId, patch);
     } else {
       result = store.createTask({ ...patch, comments: [], status: 'backlog' });
+      if (result.ok && result.task.assigneeId !== result.task.creatorId) {
+        store.createNotification({
+          companyId: result.task.companyId,
+          type: 'task_assigned',
+          recipientId: result.task.assigneeId,
+          entityId: result.task.id,
+        });
+      }
       maybeRequestNotificationPermission();
     }
 

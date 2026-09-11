@@ -67,6 +67,7 @@ function buildFreshState() {
     tasks: migrateLegacyTasksFromStorage(),
     calendarEvents: createDemoCalendarEvents(),
     announcements: createDemoAnnouncements(),
+    notifications: [],
   };
 }
 
@@ -89,6 +90,9 @@ export function loadOrMigrateState() {
         }
         if (!Array.isArray(parsed.announcements)) {
           parsed.announcements = createDemoAnnouncements();
+        }
+        if (!Array.isArray(parsed.notifications)) {
+          parsed.notifications = [];
         }
         return parsed;
       }

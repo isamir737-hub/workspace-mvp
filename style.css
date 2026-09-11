@@ -1088,6 +1088,58 @@ h1, h2, .card-title, .drawer-header h2 {
   border-radius: 999px;
 }
 
+/* Теги: чипы в drawer-форме и на Kanban-карточке */
+.tag-input-row {
+  display: flex;
+  gap: 8px;
+}
+.tag-input-row input {
+  flex: 1;
+}
+
+.tag-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+}
+
+.tag-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--neutral-tint);
+  color: var(--text-muted);
+  border-radius: 999px;
+  padding: 3px 9px;
+  font-size: 11.5px;
+  font-weight: 500;
+}
+
+.tag-chip-remove {
+  background: transparent;
+  border: none;
+  color: inherit;
+  cursor: pointer;
+  font-size: 11px;
+  padding: 0;
+  line-height: 1;
+}
+.tag-chip-remove:hover { color: var(--accent); }
+
+.tag-chip-more {
+  background: transparent;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.card-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+  margin-top: 2px;
+}
+
 /* Статистика Kanban */
 .stat-row {
   display: flex;

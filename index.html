@@ -131,6 +131,22 @@
 
         <div class="field-row">
           <label class="field">
+            <span class="field-label">Исполнитель *</span>
+            <select id="fieldAssignee" required></select>
+          </label>
+          <label class="field">
+            <span class="field-label">Приоритет</span>
+            <select id="fieldPriority">
+              <option value="low">Low</option>
+              <option value="medium" selected>Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </label>
+        </div>
+
+        <div class="field-row">
+          <label class="field">
             <span class="field-label">Дедлайн</span>
             <input type="datetime-local" id="fieldDeadline">
           </label>
@@ -146,11 +162,14 @@
           </label>
         </div>
 
-        <label class="field">
-          <span class="field-label">Соисполнитель (email)</span>
-          <input type="email" id="fieldCollaborator" placeholder="coworker@example.com">
-          <span class="field-hint" id="collaboratorHint"></span>
-        </label>
+        <div class="field">
+          <span class="field-label">Теги</span>
+          <div class="tag-input-row">
+            <input type="text" id="fieldTagInput" placeholder="Добавить тег и нажать Enter" maxlength="30">
+            <button type="button" id="addTagBtn" class="btn-secondary btn-small">Добавить</button>
+          </div>
+          <div class="tag-list" id="tagList"></div>
+        </div>
 
         <div class="field">
           <span class="field-label">Вложения</span>

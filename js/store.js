@@ -44,6 +44,26 @@ export function getAnnouncements() {
   return state.announcements;
 }
 
+// ---------- Уведомления (in-app, без отдельного Notifications Center на этом этапе) ----------
+
+export function getNotifications() {
+  return state.notifications;
+}
+
+export function createNotification(input) {
+  const notification = {
+    id: generateId('notif'),
+    companyId: input.companyId || state.company.id,
+    type: input.type,
+    recipientId: input.recipientId,
+    entityId: input.entityId,
+    createdAt: new Date().toISOString(),
+  };
+  state.notifications.push(notification);
+  const ok = persist();
+  return { ok, notification };
+}
+
 // ---------- Пользователи ----------
 
 export function getUsers() {
