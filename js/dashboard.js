@@ -333,9 +333,9 @@ function getTodaysEventsForUser(user) {
     return d.getFullYear() === now.getFullYear() && d.getMonth() === now.getMonth() && d.getDate() === now.getDate();
   };
   return store.getCalendarEvents()
-    .filter(ev => isToday(ev.startsAt))
+    .filter(ev => isToday(ev.startAt))
     .filter(ev => ev.creatorId === user.id || (ev.participantIds || []).includes(user.id))
-    .sort((a, b) => new Date(a.startsAt) - new Date(b.startsAt));
+    .sort((a, b) => new Date(a.startAt) - new Date(b.startAt));
 }
 
 function buildMeetingItem(ev) {
@@ -344,7 +344,7 @@ function buildMeetingItem(ev) {
 
   const time = document.createElement('div');
   time.className = 'meeting-time';
-  time.textContent = new Date(ev.startsAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+  time.textContent = new Date(ev.startAt).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
   row.appendChild(time);
 
   const info = document.createElement('div');

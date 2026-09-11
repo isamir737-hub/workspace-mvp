@@ -59,6 +59,28 @@ function migrateLegacyTasksFromStorage() {
   }
 }
 
+// Этап 2 хранил CalendarEvent с полями startsAt/endsAt; Этап 5 закрепил схему как
+// startAt/endAt и добавил description/meetingUrl/color/updatedAt. Приводим уже
+// сохранённые события к актуальной форме, не теряя данные.
+function normalizeCalendarEvent(event) {
+  const createdAt = event.createdAt || new Date().toISOString();
+  return {
+    id: event.id,
+    companyId: event.companyId || DEMO_COMPANY.id,
+    title: event.title || '',
+    description: event.description || '',
+    startAt: event.startAt || event.startsAt || null,
+    endAt: event.endAt !== undefined ? event.endAt : (event.endsAt !== undefined ? event.endsAt : null),
+    creatorId: event.creatorId || null,
+    participantIds: Array.isArray(event.participantIds) ? event.participantIds : [],
+    location: event.location || '',
+    meetingUrl: event.meetingUrl || null,
+    color: event.color || 'blue',
+    createdAt,
+    updatedAt: event.updatedAt || createdAt,
+  };
+}
+
 function buildFreshState() {
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -87,6 +109,8 @@ export function loadOrMigrateState() {
         }
         if (!Array.isArray(parsed.calendarEvents)) {
           parsed.calendarEvents = createDemoCalendarEvents();
+        } else {
+          parsed.calendarEvents = parsed.calendarEvents.map(normalizeCalendarEvent);
         }
         if (!Array.isArray(parsed.announcements)) {
           parsed.announcements = createDemoAnnouncements();

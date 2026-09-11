@@ -5,11 +5,11 @@ import * as auth from './auth.js';
 import * as router from './router.js';
 import * as kanban from './kanban.js';
 import * as dashboard from './dashboard.js';
+import * as calendar from './calendar.js';
 
 const ROLE_LABELS = { owner: 'Owner', manager: 'Manager', employee: 'Employee' };
 
 const PAGE_META = {
-  calendar: { title: 'Календарь', description: 'Календарь событий и дедлайнов появится здесь.' },
   workspace: { title: 'Доска и заметки', description: 'Whiteboard и заметки появятся здесь.' },
   company: { title: 'Компания', description: 'Управление компанией и сотрудниками появится здесь.' },
 };
@@ -96,6 +96,11 @@ function renderRoute(route) {
   if (route === 'dashboard') {
     pageTitle.textContent = 'Dashboard';
     dashboard.renderDashboardPage(mainContent);
+    return;
+  }
+  if (route === 'calendar') {
+    pageTitle.textContent = 'Календарь';
+    calendar.renderCalendarPage(mainContent);
     return;
   }
   const meta = PAGE_META[route];

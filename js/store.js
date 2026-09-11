@@ -34,11 +34,55 @@ export function getCompany() {
   return state.company;
 }
 
-// ---------- Календарь и объявления (read-only demo-данные для Dashboard) ----------
+// ---------- Календарь ----------
 
 export function getCalendarEvents() {
   return state.calendarEvents;
 }
+
+export function getCalendarEvent(id) {
+  return state.calendarEvents.find(e => e.id === id) || null;
+}
+
+export function createCalendarEvent(input) {
+  const now = new Date().toISOString();
+  const currentUser = getCurrentUser();
+  const event = {
+    id: generateId('event'),
+    companyId: state.company.id,
+    title: '',
+    description: '',
+    startAt: null,
+    endAt: null,
+    creatorId: currentUser ? currentUser.id : null,
+    participantIds: [],
+    location: '',
+    meetingUrl: null,
+    color: 'blue',
+    createdAt: now,
+    updatedAt: now,
+    ...input,
+  };
+  state.calendarEvents.push(event);
+  const ok = persist();
+  return { ok, event };
+}
+
+export function updateCalendarEvent(id, patch) {
+  const event = getCalendarEvent(id);
+  if (!event) return { ok: false, event: null };
+  Object.assign(event, patch);
+  event.updatedAt = new Date().toISOString();
+  const ok = persist();
+  return { ok, event };
+}
+
+export function deleteCalendarEvent(id) {
+  state.calendarEvents = state.calendarEvents.filter(e => e.id !== id);
+  return persist();
+}
+
+// ---------- Объявления (read-only demo-данные для Dashboard) ----------
 
 export function getAnnouncements() {
   return state.announcements;
