@@ -52,8 +52,7 @@ body {
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
-  display: flex;
-  flex-direction: column;
+  height: 100vh;
   overflow: hidden;
 }
 
@@ -84,11 +83,15 @@ h1, h2, .card-title, .drawer-header h2 {
 .topbar {
   display: flex;
   align-items: center;
-  justify-content: space-between;
+  gap: 12px;
   padding: 14px 24px;
   background: var(--header-bg);
   border-bottom: 1px solid var(--header-border);
   flex-shrink: 0;
+}
+
+.topbar-spacer {
+  flex: 1;
 }
 
 .brand {
@@ -104,12 +107,6 @@ h1, h2, .card-title, .drawer-header h2 {
   flex-shrink: 0;
   background: var(--accent);
   transform: rotate(-8deg);
-}
-
-.brand-text {
-  display: flex;
-  flex-direction: column;
-  line-height: 1.2;
 }
 
 .topbar h1 {
@@ -188,6 +185,17 @@ h1, h2, .card-title, .drawer-header h2 {
 .icon-btn:hover { background: var(--surface-sunken); color: var(--text); }
 
 /* ---------- Доска ---------- */
+
+.main-content {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  overflow: auto;
+}
+
+.main-content.board {
+  overflow: hidden;
+}
 
 .board {
   display: grid;
@@ -673,6 +681,230 @@ h1, h2, .card-title, .drawer-header h2 {
   to { transform: translateY(0); opacity: 1; }
 }
 
+/* ---------- Экран входа ---------- */
+
+.login-screen {
+  height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface-sunken);
+  padding: 20px;
+}
+
+.login-card {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  padding: 32px;
+  width: min(380px, 100%);
+  box-shadow: var(--shadow-md);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.login-brand {
+  margin-bottom: 2px;
+}
+
+.login-card h1 {
+  margin: 0;
+  font-size: 20px;
+}
+
+.login-subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+.login-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.login-submit {
+  width: 100%;
+  justify-content: center;
+  margin-top: 4px;
+}
+
+.login-quick {
+  border-top: 1px solid var(--border);
+  padding-top: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.login-quick-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.login-quick-buttons {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Имя бренда рядом с brand-dot — используется на экране входа и в sidebar */
+.brand-name {
+  font-family: "Raleway", "Segoe UI", sans-serif;
+  font-weight: 800;
+  font-size: 16px;
+  color: var(--text);
+}
+
+/* ---------- App Shell: Sidebar + Topbar + Main ---------- */
+
+.app-shell {
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+
+.app-sidebar {
+  width: 260px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-right: 1px solid var(--border);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px 16px;
+  overflow-y: auto;
+}
+
+.sidebar-brand {
+  padding: 4px 8px 18px;
+}
+
+.sidebar-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.nav-link {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  color: var(--text-muted);
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.nav-link:hover {
+  background: var(--surface-sunken);
+  color: var(--text);
+}
+
+.nav-link[aria-current="page"] {
+  background: var(--accent-tint);
+  color: var(--accent);
+}
+
+.nav-link svg {
+  flex-shrink: 0;
+}
+
+.sidebar-cta {
+  width: 100%;
+  justify-content: center;
+  margin: 12px 0 6px;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 14px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.sidebar-user {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.sidebar-user-info {
+  min-width: 0;
+}
+
+.sidebar-user-name {
+  font-size: 13px;
+  font-weight: 700;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.sidebar-user-role {
+  font-size: 11px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.avatar-sm {
+  width: 30px;
+  height: 30px;
+  font-size: 11px;
+}
+
+.sidebar-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 17, 17, 0.45);
+  z-index: 140;
+}
+
+.sidebar-overlay[hidden] {
+  display: none;
+}
+
+.shell-main {
+  flex: 1;
+  min-width: 0;
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.menu-btn {
+  display: none;
+}
+
+.page-placeholder {
+  padding: 32px;
+  max-width: 640px;
+}
+
+.page-placeholder h2 {
+  margin: 0 0 8px;
+  font-size: 20px;
+}
+
+.page-placeholder p {
+  color: var(--text-muted);
+  margin: 0 0 6px;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
 /* ---------- Мобильная адаптация ---------- */
 
 @media (max-width: 900px) {
@@ -681,6 +913,24 @@ h1, h2, .card-title, .drawer-header h2 {
   }
   .topbar h1 {
     font-size: 16px;
+  }
+
+  .menu-btn {
+    display: inline-flex;
+  }
+
+  .app-sidebar {
+    position: fixed;
+    inset: 0 auto 0 0;
+    z-index: 150;
+    width: min(280px, 84vw);
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: var(--shadow-md);
+  }
+
+  .app-sidebar.is-open {
+    transform: translateX(0);
   }
 
   /* На узких экранах 5 колонок не помещаются по ширине — переключаемся

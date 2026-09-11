@@ -3,30 +3,113 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Мои задачи — канбан-доска</title>
+<title>Workspace</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Raleway:wght@700;800&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <header class="topbar">
-    <div class="brand">
-      <span class="brand-dot" aria-hidden="true"></span>
-      <div class="brand-text">
-        <h1>Мои задачи</h1>
+
+  <!-- Экран входа (demo-авторизация) -->
+  <div id="loginScreen" class="login-screen" hidden>
+    <div class="login-card">
+      <div class="brand login-brand">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span class="brand-name">Workspace</span>
+      </div>
+      <h1>Вход</h1>
+      <p class="login-subtitle">Демо-авторизация: любые непустые email и пароль дают доступ.</p>
+      <form id="loginForm" class="login-form">
+        <label class="field">
+          <span class="field-label">Email</span>
+          <input type="email" id="loginEmail" required placeholder="you@company.com">
+        </label>
+        <label class="field">
+          <span class="field-label">Пароль</span>
+          <input type="password" id="loginPassword" required placeholder="••••••••">
+        </label>
+        <button type="submit" class="btn-primary login-submit">Войти</button>
+      </form>
+      <div class="login-quick">
+        <span class="login-quick-label">Быстрый вход:</span>
+        <div class="login-quick-buttons">
+          <button type="button" class="btn-secondary btn-small" data-quick-role="owner">Owner</button>
+          <button type="button" class="btn-secondary btn-small" data-quick-role="manager">Manager</button>
+          <button type="button" class="btn-secondary btn-small" data-quick-role="employee">Employee</button>
+        </div>
       </div>
     </div>
-    <button id="newTaskBtn" class="btn-primary">
-      <span class="plus" aria-hidden="true">+</span> Новая задача
-    </button>
-  </header>
+  </div>
 
-  <main class="board" id="board">
-    <!-- Колонки рендерятся из app.js на основе конфигурации COLUMNS -->
-  </main>
+  <!-- App Shell: Sidebar + Topbar + Main content -->
+  <div id="appShell" class="app-shell" hidden>
+    <div class="sidebar-overlay" id="sidebarOverlay" hidden></div>
 
-  <!-- Панель создания/редактирования задачи -->
+    <aside class="app-sidebar" id="appSidebar">
+      <div class="brand sidebar-brand">
+        <span class="brand-dot" aria-hidden="true"></span>
+        <span class="brand-name">Workspace</span>
+      </div>
+
+      <nav class="sidebar-nav" aria-label="Основная навигация">
+        <a href="#/dashboard" class="nav-link" data-route="dashboard">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="8" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/><rect x="13" y="13" width="8" height="8" rx="1.5"/></svg>
+          <span>Dashboard</span>
+        </a>
+        <a href="#/kanban" class="nav-link" data-route="kanban">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="5" height="16" rx="1.5"/><rect x="9.5" y="4" width="5" height="10" rx="1.5"/><rect x="16" y="4" width="5" height="13" rx="1.5"/></svg>
+          <span>Kanban</span>
+        </a>
+        <a href="#/calendar" class="nav-link" data-route="calendar">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="3" x2="8" y2="7"/><line x1="16" y1="3" x2="16" y2="7"/></svg>
+          <span>Calendar</span>
+        </a>
+        <a href="#/workspace" class="nav-link" data-route="workspace">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="14" rx="2"/><line x1="7" y1="8" x2="17" y2="8"/><line x1="7" y1="12" x2="14" y2="12"/></svg>
+          <span>Whiteboard &amp; Notes</span>
+        </a>
+        <a href="#/company" class="nav-link" data-route="company">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="4" y="3" width="12" height="18" rx="1.5"/><line x1="8" y1="8" x2="8" y2="8.01"/><line x1="12" y1="8" x2="12" y2="8.01"/><line x1="8" y1="12" x2="8" y2="12.01"/><line x1="12" y1="12" x2="12" y2="12.01"/><path d="M16 21v-6h4v6"/></svg>
+          <span>Company</span>
+        </a>
+      </nav>
+
+      <button type="button" id="sidebarNewTaskBtn" class="btn-primary sidebar-cta">
+        <span class="plus" aria-hidden="true">+</span> Новая задача
+      </button>
+
+      <div class="sidebar-footer">
+        <div class="sidebar-user">
+          <div class="avatar" id="sidebarUserAvatar"></div>
+          <div class="sidebar-user-info">
+            <div class="sidebar-user-name" id="sidebarUserName"></div>
+            <div class="sidebar-user-role" id="sidebarUserRole"></div>
+          </div>
+        </div>
+        <button type="button" id="logoutBtn" class="icon-btn" aria-label="Выйти" title="Выйти">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+        </button>
+      </div>
+    </aside>
+
+    <div class="shell-main">
+      <header class="topbar">
+        <button type="button" id="sidebarToggleBtn" class="icon-btn menu-btn" aria-label="Открыть меню">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="7" x2="20" y2="7"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="17" x2="20" y2="17"/></svg>
+        </button>
+        <h1 id="pageTitle">Dashboard</h1>
+        <div class="topbar-spacer"></div>
+        <div class="avatar avatar-sm" id="topbarUserAvatar"></div>
+      </header>
+
+      <main class="main-content" id="mainContent">
+        <!-- Роутер рендерит текущую страницу сюда -->
+      </main>
+    </div>
+  </div>
+
+  <!-- Панель создания/редактирования задачи (используется kanban.js) -->
   <div class="drawer-overlay" id="modalOverlay" hidden>
     <aside class="drawer">
       <div class="drawer-header">
@@ -102,6 +185,6 @@
   <!-- Всплывающее уведомление -->
   <div class="toast-container" id="toastContainer"></div>
 
-  <script src="app.js"></script>
+  <script type="module" src="js/app.js"></script>
 </body>
 </html>

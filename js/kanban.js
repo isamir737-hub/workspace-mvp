@@ -1,8 +1,8 @@
-// Простая канбан-доска. Хранение данных — в localStorage браузера.
+// Kanban-доска. Рендеринг колонок/карточек и drawer создания/редактирования задачи.
+// Все обращения к данным идут через store.js — модуль не трогает localStorage напрямую.
 
-const STORAGE_KEY = 'kanban-tasks-v1'; // тот же ключ, что и в первой версии — старые задачи мигрируются автоматически
+import * as store from './store.js';
 
-// Конфигурация колонок: id статуса, подпись, цветовой акцент (см. style.css)
 const COLUMNS = [
   { id: 'backlog', label: 'Backlog', color: 'neutral' },
   { id: 'todo', label: 'To Do', color: 'orange' },
@@ -19,7 +19,6 @@ const REMINDER_LABELS = {
   '1440': 'за 1 день до дедлайна',
 };
 
-// Разрешённые вложения: расширение -> { emoji, лейбл }
 const ALLOWED_ATTACHMENTS = {
   '.doc': { icon: '📄', label: 'Word' },
   '.docx': { icon: '📄', label: 'Word' },
@@ -34,47 +33,72 @@ const ALLOWED_ATTACHMENTS = {
 };
 const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024; // 5 МБ на файл
 
-let tasks = loadTasks();
 let editingTaskId = null;
 let notificationPermissionAsked = false;
-
-// Временное состояние открытой формы (вложения, добавляемые до сохранения задачи)
 let formAttachments = [];
+let boardEl = null; // контейнер доски, если страница #/kanban сейчас смонтирована
 
-// ---------- Хранение ----------
+// ---------- Drawer: DOM-ссылки (статические элементы index.html) ----------
 
-function loadTasks() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
-    if (!Array.isArray(parsed)) return [];
-    return parsed;
-  } catch (e) {
-    console.error('Не удалось прочитать сохранённые задачи', e);
-    return [];
-  }
+let modalOverlay, modalTitle, taskForm, fieldTitle, fieldDescription, fieldDeadline,
+  fieldReminder, fieldCollaborator, collaboratorHint, fieldAttachments, attachBtn,
+  attachmentList, commentsSection, commentsList, fieldNewComment, addCommentBtn,
+  deleteBtn, cancelBtn, closeDrawerBtn;
+
+function cacheDrawerRefs() {
+  modalOverlay = document.getElementById('modalOverlay');
+  modalTitle = document.getElementById('modalTitle');
+  taskForm = document.getElementById('taskForm');
+  fieldTitle = document.getElementById('fieldTitle');
+  fieldDescription = document.getElementById('fieldDescription');
+  fieldDeadline = document.getElementById('fieldDeadline');
+  fieldReminder = document.getElementById('fieldReminder');
+  fieldCollaborator = document.getElementById('fieldCollaborator');
+  collaboratorHint = document.getElementById('collaboratorHint');
+  fieldAttachments = document.getElementById('fieldAttachments');
+  attachBtn = document.getElementById('attachBtn');
+  attachmentList = document.getElementById('attachmentList');
+  commentsSection = document.getElementById('commentsSection');
+  commentsList = document.getElementById('commentsList');
+  fieldNewComment = document.getElementById('fieldNewComment');
+  addCommentBtn = document.getElementById('addCommentBtn');
+  deleteBtn = document.getElementById('deleteBtn');
+  cancelBtn = document.getElementById('cancelBtn');
+  closeDrawerBtn = document.getElementById('closeDrawerBtn');
 }
 
-function saveTasks() {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(tasks));
-    return true;
-  } catch (e) {
-    console.error('Не удалось сохранить задачи', e);
-    showToast('Ошибка сохранения', 'Не получилось сохранить изменения — возможно, вложения слишком большие для хранилища браузера.');
-    return false;
-  }
+// ---------- Публичный API модуля ----------
+
+export function initKanbanModule() {
+  cacheDrawerRefs();
+  wireDrawerEvents();
+  wireAttachmentEvents();
+  wireCommentEvents();
+  checkReminders();
+  setInterval(() => {
+    checkReminders();
+    renderBoard();
+  }, 30000);
 }
 
-function generateId(prefix) {
-  return prefix + '-' + Date.now() + '-' + Math.random().toString(36).slice(2, 8);
+export function renderKanbanPage(container) {
+  boardEl = container;
+  boardEl.className = 'main-content board';
+  renderBoard();
+}
+
+export function openCreateTaskDrawer() {
+  openCreateModal();
 }
 
 // ---------- Рендеринг доски ----------
 
 function renderBoard() {
-  const board = document.getElementById('board');
+  // boardEl (#mainContent) is a persistent shell element reused by every route,
+  // so besides being attached it must still be showing the kanban page right now —
+  // otherwise the periodic reminder tick would overwrite whatever page is active.
+  if (!boardEl || !document.body.contains(boardEl) || !boardEl.classList.contains('board')) return;
+  const board = boardEl;
   board.innerHTML = '';
 
   for (const col of COLUMNS) {
@@ -108,6 +132,7 @@ function renderBoard() {
 
   setupDropZones();
 
+  const tasks = store.getTasks();
   for (const col of COLUMNS) {
     const container = document.getElementById('cards-' + col.id);
     const list = tasks.filter(t => t.status === col.id);
@@ -127,6 +152,14 @@ function renderBoard() {
   }
 }
 
+function getAssigneeDisplayEmail(task) {
+  if (task.assigneeId) {
+    const user = store.getUserById(task.assigneeId);
+    if (user) return user.email;
+  }
+  return task.legacyCollaboratorEmail || null;
+}
+
 function buildCard(task) {
   const card = document.createElement('div');
   card.className = 'card';
@@ -143,11 +176,12 @@ function buildCard(task) {
   title.className = 'card-title';
   title.textContent = task.title;
   top.appendChild(title);
-  if (task.collaboratorEmail) {
+  const assigneeEmail = getAssigneeDisplayEmail(task);
+  if (assigneeEmail) {
     const avatar = document.createElement('div');
     avatar.className = 'avatar';
-    avatar.textContent = emailInitials(task.collaboratorEmail);
-    avatar.title = task.collaboratorEmail;
+    avatar.textContent = emailInitials(assigneeEmail);
+    avatar.title = assigneeEmail;
     top.appendChild(avatar);
   }
   card.appendChild(top);
@@ -244,10 +278,8 @@ function emailInitials(email) {
 }
 
 function moveTask(id, newStatus) {
-  const task = tasks.find(t => t.id === id);
-  if (!task) return;
-  task.status = newStatus;
-  saveTasks();
+  const { ok } = store.updateTask(id, { status: newStatus });
+  if (!ok) { showToast('Ошибка сохранения', 'Не получилось сохранить изменения.'); return; }
   renderBoard();
 }
 
@@ -287,26 +319,6 @@ function isValidEmail(value) {
 
 // ---------- Панель создания/редактирования ----------
 
-const modalOverlay = document.getElementById('modalOverlay');
-const modalTitle = document.getElementById('modalTitle');
-const taskForm = document.getElementById('taskForm');
-const fieldTitle = document.getElementById('fieldTitle');
-const fieldDescription = document.getElementById('fieldDescription');
-const fieldDeadline = document.getElementById('fieldDeadline');
-const fieldReminder = document.getElementById('fieldReminder');
-const fieldCollaborator = document.getElementById('fieldCollaborator');
-const collaboratorHint = document.getElementById('collaboratorHint');
-const fieldAttachments = document.getElementById('fieldAttachments');
-const attachBtn = document.getElementById('attachBtn');
-const attachmentList = document.getElementById('attachmentList');
-const commentsSection = document.getElementById('commentsSection');
-const commentsList = document.getElementById('commentsList');
-const fieldNewComment = document.getElementById('fieldNewComment');
-const addCommentBtn = document.getElementById('addCommentBtn');
-const deleteBtn = document.getElementById('deleteBtn');
-const cancelBtn = document.getElementById('cancelBtn');
-const closeDrawerBtn = document.getElementById('closeDrawerBtn');
-
 function openCreateModal() {
   editingTaskId = null;
   formAttachments = [];
@@ -322,7 +334,7 @@ function openCreateModal() {
 }
 
 function openEditModal(id) {
-  const task = tasks.find(t => t.id === id);
+  const task = store.getTask(id);
   if (!task) return;
   editingTaskId = id;
   formAttachments = (task.attachments || []).slice();
@@ -331,7 +343,7 @@ function openEditModal(id) {
   fieldDescription.value = task.description || '';
   fieldDeadline.value = task.deadline ? toLocalInputValue(task.deadline) : '';
   fieldReminder.value = task.reminderMinutes !== null && task.reminderMinutes !== undefined ? String(task.reminderMinutes) : '';
-  fieldCollaborator.value = task.collaboratorEmail || '';
+  fieldCollaborator.value = getAssigneeDisplayEmail(task) || '';
   collaboratorHint.textContent = '';
   collaboratorHint.classList.remove('error');
   renderAttachmentList();
@@ -356,116 +368,121 @@ function toLocalInputValue(iso) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
-document.getElementById('newTaskBtn').addEventListener('click', openCreateModal);
-cancelBtn.addEventListener('click', closeModal);
-closeDrawerBtn.addEventListener('click', closeModal);
-modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
+function wireDrawerEvents() {
+  cancelBtn.addEventListener('click', closeModal);
+  closeDrawerBtn.addEventListener('click', closeModal);
+  modalOverlay.addEventListener('click', (e) => { if (e.target === modalOverlay) closeModal(); });
 
-fieldCollaborator.addEventListener('input', () => {
-  const value = fieldCollaborator.value.trim();
-  if (!value) {
-    collaboratorHint.textContent = '';
-    collaboratorHint.classList.remove('error');
-  } else if (!isValidEmail(value)) {
-    collaboratorHint.textContent = 'Похоже, это не email — проверьте формат (например, name@company.com)';
-    collaboratorHint.classList.add('error');
-  } else {
-    collaboratorHint.textContent = '';
-    collaboratorHint.classList.remove('error');
-  }
-});
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !modalOverlay.hidden) closeModal();
+  });
 
-deleteBtn.addEventListener('click', () => {
-  if (!editingTaskId) return;
-  tasks = tasks.filter(t => t.id !== editingTaskId);
-  saveTasks();
-  renderBoard();
-  closeModal();
-});
+  fieldCollaborator.addEventListener('input', () => {
+    const value = fieldCollaborator.value.trim();
+    if (!value) {
+      collaboratorHint.textContent = '';
+      collaboratorHint.classList.remove('error');
+    } else if (!isValidEmail(value)) {
+      collaboratorHint.textContent = 'Похоже, это не email — проверьте формат (например, name@company.com)';
+      collaboratorHint.classList.add('error');
+    } else {
+      collaboratorHint.textContent = '';
+      collaboratorHint.classList.remove('error');
+    }
+  });
 
-taskForm.addEventListener('submit', (e) => {
-  e.preventDefault();
-  const title = fieldTitle.value.trim();
-  if (!title) { fieldTitle.focus(); return; }
+  deleteBtn.addEventListener('click', () => {
+    if (!editingTaskId) return;
+    const ok = store.deleteTask(editingTaskId);
+    if (!ok) { showToast('Ошибка сохранения', 'Не получилось сохранить изменения.'); return; }
+    renderBoard();
+    closeModal();
+  });
 
-  const collaboratorRaw = fieldCollaborator.value.trim();
-  if (collaboratorRaw && !isValidEmail(collaboratorRaw)) {
-    collaboratorHint.textContent = 'Исправьте email соисполнителя перед сохранением';
-    collaboratorHint.classList.add('error');
-    fieldCollaborator.focus();
-    return;
-  }
+  taskForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const title = fieldTitle.value.trim();
+    if (!title) { fieldTitle.focus(); return; }
 
-  const deadlineRaw = fieldDeadline.value;
-  const deadlineIso = deadlineRaw ? new Date(deadlineRaw).toISOString() : null;
-  const reminderRaw = fieldReminder.value;
-  const reminderMinutes = (reminderRaw !== '' && deadlineIso) ? Number(reminderRaw) : null;
+    const collaboratorRaw = fieldCollaborator.value.trim();
+    if (collaboratorRaw && !isValidEmail(collaboratorRaw)) {
+      collaboratorHint.textContent = 'Исправьте email соисполнителя перед сохранением';
+      collaboratorHint.classList.add('error');
+      fieldCollaborator.focus();
+      return;
+    }
+    const matchedUser = collaboratorRaw ? store.getUserByEmail(collaboratorRaw) : null;
+    const assigneeId = matchedUser ? matchedUser.id : null;
+    const legacyCollaboratorEmail = (collaboratorRaw && !matchedUser) ? collaboratorRaw : null;
 
-  if (editingTaskId) {
-    const task = tasks.find(t => t.id === editingTaskId);
-    task.title = title;
-    task.description = fieldDescription.value.trim();
-    task.deadline = deadlineIso;
-    task.reminderMinutes = reminderMinutes;
-    task.reminderShown = false; // изменили дедлайн/напоминание — можно показать снова
-    task.collaboratorEmail = collaboratorRaw || null;
-    task.attachments = formAttachments;
-  } else {
-    tasks.push({
-      id: generateId('task'),
+    const deadlineRaw = fieldDeadline.value;
+    const deadlineIso = deadlineRaw ? new Date(deadlineRaw).toISOString() : null;
+    const reminderRaw = fieldReminder.value;
+    const reminderMinutes = (reminderRaw !== '' && deadlineIso) ? Number(reminderRaw) : null;
+
+    const patch = {
       title,
       description: fieldDescription.value.trim(),
       deadline: deadlineIso,
       reminderMinutes,
-      reminderShown: false,
-      collaboratorEmail: collaboratorRaw || null,
+      reminderShown: false, // изменили дедлайн/напоминание — можно показать снова
+      assigneeId,
+      legacyCollaboratorEmail,
       attachments: formAttachments,
-      comments: [],
-      status: 'backlog',
-      createdAt: new Date().toISOString(),
-    });
-    maybeRequestNotificationPermission();
-  }
+    };
 
-  const ok = saveTasks();
-  if (!ok) return; // не закрываем панель, чтобы пользователь не потерял ввод
-  renderBoard();
-  closeModal();
-});
+    let result;
+    if (editingTaskId) {
+      result = store.updateTask(editingTaskId, patch);
+    } else {
+      result = store.createTask({ ...patch, comments: [], status: 'backlog' });
+      maybeRequestNotificationPermission();
+    }
+
+    if (!result.ok) {
+      showToast('Ошибка сохранения', 'Не получилось сохранить изменения — возможно, вложения слишком большие для хранилища браузера.');
+      return; // не закрываем панель, чтобы пользователь не потерял ввод
+    }
+    renderBoard();
+    closeModal();
+  });
+}
 
 // ---------- Вложения ----------
 
-attachBtn.addEventListener('click', () => fieldAttachments.click());
+function wireAttachmentEvents() {
+  attachBtn.addEventListener('click', () => fieldAttachments.click());
 
-fieldAttachments.addEventListener('change', async () => {
-  const files = Array.from(fieldAttachments.files || []);
-  for (const file of files) {
-    const ext = getExtension(file.name);
-    const allowed = ALLOWED_ATTACHMENTS[ext];
-    if (!allowed) {
-      showToast('Файл не поддерживается', `«${file.name}»: разрешены только Word, Excel, PowerPoint, CSV, PDF и JPEG.`);
-      continue;
+  fieldAttachments.addEventListener('change', async () => {
+    const files = Array.from(fieldAttachments.files || []);
+    for (const file of files) {
+      const ext = getExtension(file.name);
+      const allowed = ALLOWED_ATTACHMENTS[ext];
+      if (!allowed) {
+        showToast('Файл не поддерживается', `«${file.name}»: разрешены только Word, Excel, PowerPoint, CSV, PDF и JPEG.`);
+        continue;
+      }
+      if (file.size > MAX_ATTACHMENT_BYTES) {
+        showToast('Файл слишком большой', `«${file.name}» больше 5 МБ. Выберите файл меньшего размера.`);
+        continue;
+      }
+      try {
+        const dataUrl = await readFileAsDataUrl(file);
+        formAttachments.push({
+          id: store.generateId('att'),
+          name: file.name,
+          size: file.size,
+          ext,
+          dataUrl,
+        });
+      } catch (e) {
+        showToast('Не удалось прикрепить файл', `«${file.name}»: ошибка чтения файла.`);
+      }
     }
-    if (file.size > MAX_ATTACHMENT_BYTES) {
-      showToast('Файл слишком большой', `«${file.name}» больше 5 МБ. Выберите файл меньшего размера.`);
-      continue;
-    }
-    try {
-      const dataUrl = await readFileAsDataUrl(file);
-      formAttachments.push({
-        id: generateId('att'),
-        name: file.name,
-        size: file.size,
-        ext,
-        dataUrl,
-      });
-    } catch (e) {
-      showToast('Не удалось прикрепить файл', `«${file.name}»: ошибка чтения файла.`);
-    }
-  }
-  fieldAttachments.value = '';
-  renderAttachmentList();
-});
+    fieldAttachments.value = '';
+    renderAttachmentList();
+  });
+}
 
 function readFileAsDataUrl(file) {
   return new Promise((resolve, reject) => {
@@ -527,7 +544,6 @@ function renderCommentsList(comments) {
     commentsList.appendChild(empty);
     return;
   }
-  // Показываем от новых к старым
   const sorted = comments.slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
   for (const c of sorted) {
     const item = document.createElement('div');
@@ -544,24 +560,25 @@ function renderCommentsList(comments) {
   }
 }
 
-addCommentBtn.addEventListener('click', () => {
-  if (!editingTaskId) return;
-  const text = fieldNewComment.value.trim();
-  if (!text) return;
-  const task = tasks.find(t => t.id === editingTaskId);
-  if (!task) return;
-  if (!task.comments) task.comments = [];
-  task.comments.push({
-    id: generateId('comment'),
-    text,
-    createdAt: new Date().toISOString(),
+function wireCommentEvents() {
+  addCommentBtn.addEventListener('click', () => {
+    if (!editingTaskId) return;
+    const text = fieldNewComment.value.trim();
+    if (!text) return;
+    const task = store.getTask(editingTaskId);
+    if (!task) return;
+    const comments = (task.comments || []).concat([{
+      id: store.generateId('comment'),
+      text,
+      createdAt: new Date().toISOString(),
+    }]);
+    const { ok } = store.updateTask(editingTaskId, { comments });
+    if (!ok) { showToast('Ошибка сохранения', 'Не получилось сохранить комментарий.'); return; }
+    fieldNewComment.value = '';
+    renderCommentsList(store.getTask(editingTaskId).comments);
+    renderBoard();
   });
-  const ok = saveTasks();
-  if (!ok) { task.comments.pop(); return; }
-  fieldNewComment.value = '';
-  renderCommentsList(task.comments);
-  renderBoard();
-});
+}
 
 // ---------- Drag & Drop (мышь, десктоп) ----------
 
@@ -608,8 +625,7 @@ function showToast(title, body) {
 
 function checkReminders() {
   const now = Date.now();
-  let changed = false;
-  for (const task of tasks) {
+  for (const task of store.getTasks()) {
     if (task.reminderShown) continue;
     if (task.reminderMinutes === null || task.reminderMinutes === undefined) continue;
     if (!task.deadline) continue;
@@ -619,11 +635,9 @@ function checkReminders() {
     const triggerMs = deadlineMs - task.reminderMinutes * 60000;
     if (now >= triggerMs) {
       fireReminder(task);
-      task.reminderShown = true;
-      changed = true;
+      store.updateTask(task.id, { reminderShown: true });
     }
   }
-  if (changed) saveTasks();
 }
 
 function fireReminder(task) {
@@ -637,31 +651,3 @@ function fireReminder(task) {
     }
   }
 }
-
-// Проверяем напоминания и просроченные дедлайны каждые 30 секунд,
-// плюс перерисовываем доску, чтобы обновить статус "скоро/просрочено".
-setInterval(() => {
-  checkReminders();
-  renderBoard();
-}, 30000);
-
-// ---------- Миграция старых данных (v1: 3 колонки todo/doing/done) ----------
-
-function migrateLegacyStatuses() {
-  const map = { doing: 'inprogress' };
-  let changed = false;
-  for (const task of tasks) {
-    if (map[task.status]) { task.status = map[task.status]; changed = true; }
-    if (!STATUSES.includes(task.status)) { task.status = 'backlog'; changed = true; }
-    if (!Array.isArray(task.attachments)) { task.attachments = []; changed = true; }
-    if (!Array.isArray(task.comments)) { task.comments = []; changed = true; }
-    if (task.collaboratorEmail === undefined) { task.collaboratorEmail = null; changed = true; }
-  }
-  if (changed) saveTasks();
-}
-
-// ---------- Инициализация ----------
-
-migrateLegacyStatuses();
-renderBoard();
-checkReminders();

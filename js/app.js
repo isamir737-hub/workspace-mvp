@@ -1,0 +1,172 @@
+// Точка входа приложения: инициализация Store, склейка Login / App Shell / Router / Kanban.
+
+import * as store from './store.js';
+import * as auth from './auth.js';
+import * as router from './router.js';
+import * as kanban from './kanban.js';
+
+const ROLE_LABELS = { owner: 'Owner', manager: 'Manager', employee: 'Employee' };
+
+const PAGE_META = {
+  dashboard: { title: 'Dashboard', description: 'Обзор компании, задач и активности появится здесь.' },
+  calendar: { title: 'Календарь', description: 'Календарь событий и дедлайнов появится здесь.' },
+  workspace: { title: 'Доска и заметки', description: 'Whiteboard и заметки появятся здесь.' },
+  company: { title: 'Компания', description: 'Управление компанией и сотрудниками появится здесь.' },
+};
+
+const loginScreen = document.getElementById('loginScreen');
+const loginForm = document.getElementById('loginForm');
+const loginEmail = document.getElementById('loginEmail');
+const loginPassword = document.getElementById('loginPassword');
+const quickLoginBtns = document.querySelectorAll('[data-quick-role]');
+
+const appShell = document.getElementById('appShell');
+const pageTitle = document.getElementById('pageTitle');
+const mainContent = document.getElementById('mainContent');
+const navLinks = document.querySelectorAll('.nav-link');
+
+const appSidebar = document.getElementById('appSidebar');
+const sidebarOverlay = document.getElementById('sidebarOverlay');
+const sidebarToggleBtn = document.getElementById('sidebarToggleBtn');
+const sidebarNewTaskBtn = document.getElementById('sidebarNewTaskBtn');
+const sidebarUserAvatar = document.getElementById('sidebarUserAvatar');
+const sidebarUserName = document.getElementById('sidebarUserName');
+const sidebarUserRole = document.getElementById('sidebarUserRole');
+const topbarUserAvatar = document.getElementById('topbarUserAvatar');
+const logoutBtn = document.getElementById('logoutBtn');
+
+let pendingCreateTask = false;
+
+function initials(name) {
+  return name.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase();
+}
+
+function renderPlaceholder(container, meta) {
+  container.className = 'main-content';
+  container.innerHTML = '';
+  const wrap = document.createElement('div');
+  wrap.className = 'page-placeholder';
+  const h2 = document.createElement('h2');
+  h2.textContent = meta.title;
+  wrap.appendChild(h2);
+  const p1 = document.createElement('p');
+  p1.textContent = meta.description;
+  wrap.appendChild(p1);
+  const p2 = document.createElement('p');
+  p2.textContent = 'Раздел будет добавлен на следующем этапе.';
+  wrap.appendChild(p2);
+  container.appendChild(wrap);
+}
+
+function updateUserChrome() {
+  const user = store.getCurrentUser();
+  if (!user) return;
+  const label = initials(user.name);
+  const roleLabel = ROLE_LABELS[user.role] || user.role;
+  sidebarUserAvatar.textContent = label;
+  sidebarUserName.textContent = user.name;
+  sidebarUserRole.textContent = roleLabel;
+  topbarUserAvatar.textContent = label;
+  topbarUserAvatar.title = user.name + ' · ' + roleLabel;
+}
+
+function setActiveNav(route) {
+  navLinks.forEach(link => {
+    if (link.dataset.route === route) link.setAttribute('aria-current', 'page');
+    else link.removeAttribute('aria-current');
+  });
+}
+
+function closeMobileSidebar() {
+  appSidebar.classList.remove('is-open');
+  sidebarOverlay.hidden = true;
+}
+
+function renderRoute(route) {
+  setActiveNav(route);
+  if (route === 'kanban') {
+    pageTitle.textContent = 'Kanban';
+    kanban.renderKanbanPage(mainContent);
+    if (pendingCreateTask) {
+      pendingCreateTask = false;
+      kanban.openCreateTaskDrawer();
+    }
+    return;
+  }
+  const meta = PAGE_META[route] || PAGE_META.dashboard;
+  pageTitle.textContent = meta.title;
+  renderPlaceholder(mainContent, meta);
+}
+
+function handleRouteChange() {
+  const route = router.getCurrentRoute();
+  const authed = auth.isAuthenticated();
+
+  if (!authed) {
+    pendingCreateTask = false;
+    if (route !== 'login') { router.navigate('login'); return; }
+    appShell.hidden = true;
+    loginScreen.hidden = false;
+    return;
+  }
+
+  if (route === 'login') { router.navigate('dashboard'); return; }
+
+  loginScreen.hidden = true;
+  appShell.hidden = false;
+  updateUserChrome();
+  renderRoute(route);
+}
+
+// ---------- Login ----------
+
+loginForm.addEventListener('submit', (e) => {
+  e.preventDefault();
+  const email = loginEmail.value.trim();
+  const password = loginPassword.value.trim();
+  if (!email || !password) return;
+  auth.login(email);
+  loginForm.reset();
+  router.navigate('dashboard');
+});
+
+quickLoginBtns.forEach(btn => {
+  btn.addEventListener('click', () => {
+    auth.quickLogin(btn.dataset.quickRole);
+    router.navigate('dashboard');
+  });
+});
+
+logoutBtn.addEventListener('click', () => {
+  auth.logout();
+  router.navigate('login');
+});
+
+// ---------- Sidebar (мобильный off-canvas) ----------
+
+sidebarToggleBtn.addEventListener('click', () => {
+  const isOpen = appSidebar.classList.toggle('is-open');
+  sidebarOverlay.hidden = !isOpen;
+});
+sidebarOverlay.addEventListener('click', closeMobileSidebar);
+navLinks.forEach(link => link.addEventListener('click', closeMobileSidebar));
+
+document.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape') closeMobileSidebar();
+});
+
+sidebarNewTaskBtn.addEventListener('click', () => {
+  closeMobileSidebar();
+  if (router.getCurrentRoute() === 'kanban') {
+    kanban.openCreateTaskDrawer();
+  } else {
+    pendingCreateTask = true;
+    router.navigate('kanban');
+  }
+});
+
+// ---------- Инициализация ----------
+
+store.init();
+kanban.initKanbanModule();
+router.initRouter(handleRouteChange);
