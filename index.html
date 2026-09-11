@@ -1,0 +1,107 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Мои задачи — канбан-доска</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&family=Raleway:wght@700;800&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-dot" aria-hidden="true"></span>
+      <div class="brand-text">
+        <h1>Мои задачи</h1>
+      </div>
+    </div>
+    <button id="newTaskBtn" class="btn-primary">
+      <span class="plus" aria-hidden="true">+</span> Новая задача
+    </button>
+  </header>
+
+  <main class="board" id="board">
+    <!-- Колонки рендерятся из app.js на основе конфигурации COLUMNS -->
+  </main>
+
+  <!-- Панель создания/редактирования задачи -->
+  <div class="drawer-overlay" id="modalOverlay" hidden>
+    <aside class="drawer">
+      <div class="drawer-header">
+        <h2 id="modalTitle">Новая задача</h2>
+        <button type="button" id="closeDrawerBtn" class="icon-btn" aria-label="Закрыть">✕</button>
+      </div>
+
+      <form id="taskForm" class="drawer-form">
+      <div class="drawer-body">
+        <label class="field">
+          <span class="field-label">Название *</span>
+          <input type="text" id="fieldTitle" required maxlength="120" placeholder="Например, подготовить презентацию">
+        </label>
+
+        <label class="field">
+          <span class="field-label">Описание</span>
+          <textarea id="fieldDescription" rows="3" maxlength="1000" placeholder="Необязательно"></textarea>
+        </label>
+
+        <div class="field-row">
+          <label class="field">
+            <span class="field-label">Дедлайн</span>
+            <input type="datetime-local" id="fieldDeadline">
+          </label>
+          <label class="field">
+            <span class="field-label">Напоминание</span>
+            <select id="fieldReminder">
+              <option value="">Без напоминания</option>
+              <option value="0">В момент дедлайна</option>
+              <option value="15">За 15 минут</option>
+              <option value="60">За 1 час</option>
+              <option value="1440">За 1 день</option>
+            </select>
+          </label>
+        </div>
+
+        <label class="field">
+          <span class="field-label">Соисполнитель (email)</span>
+          <input type="email" id="fieldCollaborator" placeholder="coworker@example.com">
+          <span class="field-hint" id="collaboratorHint"></span>
+        </label>
+
+        <div class="field">
+          <span class="field-label">Вложения</span>
+          <span class="field-hint">Word, Excel, PowerPoint, CSV, PDF, JPEG — до 5 МБ на файл</span>
+          <input type="file" id="fieldAttachments" multiple hidden
+            accept=".doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.pdf,.jpg,.jpeg,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/csv,application/pdf,image/jpeg">
+          <button type="button" id="attachBtn" class="btn-secondary btn-small">📎 Прикрепить файл</button>
+          <div class="attachment-list" id="attachmentList"></div>
+        </div>
+
+        <div class="field comments-field" id="commentsSection" hidden>
+          <span class="field-label">Комментарии</span>
+          <div class="comments-list" id="commentsList"></div>
+          <div class="comment-input-row">
+            <textarea id="fieldNewComment" rows="2" placeholder="Написать комментарий..."></textarea>
+            <button type="button" id="addCommentBtn" class="btn-secondary btn-small">Добавить</button>
+          </div>
+        </div>
+
+      </div>
+        <div class="drawer-actions">
+          <button type="button" id="deleteBtn" class="btn-danger" hidden>Удалить</button>
+          <div class="drawer-actions-right">
+            <button type="button" id="cancelBtn" class="btn-secondary">Отмена</button>
+            <button type="submit" class="btn-primary">Сохранить</button>
+          </div>
+        </div>
+      </form>
+    </aside>
+  </div>
+
+  <!-- Всплывающее уведомление -->
+  <div class="toast-container" id="toastContainer"></div>
+
+  <script src="app.js"></script>
+</body>
+</html>
