@@ -4,11 +4,11 @@ import * as store from './store.js';
 import * as auth from './auth.js';
 import * as router from './router.js';
 import * as kanban from './kanban.js';
+import * as dashboard from './dashboard.js';
 
 const ROLE_LABELS = { owner: 'Owner', manager: 'Manager', employee: 'Employee' };
 
 const PAGE_META = {
-  dashboard: { title: 'Dashboard', description: 'Обзор компании, задач и активности появится здесь.' },
   calendar: { title: 'Календарь', description: 'Календарь событий и дедлайнов появится здесь.' },
   workspace: { title: 'Доска и заметки', description: 'Whiteboard и заметки появятся здесь.' },
   company: { title: 'Компания', description: 'Управление компанией и сотрудниками появится здесь.' },
@@ -93,7 +93,12 @@ function renderRoute(route) {
     }
     return;
   }
-  const meta = PAGE_META[route] || PAGE_META.dashboard;
+  if (route === 'dashboard') {
+    pageTitle.textContent = 'Dashboard';
+    dashboard.renderDashboardPage(mainContent);
+    return;
+  }
+  const meta = PAGE_META[route];
   pageTitle.textContent = meta.title;
   renderPlaceholder(mainContent, meta);
 }
@@ -169,4 +174,11 @@ sidebarNewTaskBtn.addEventListener('click', () => {
 
 store.init();
 kanban.initKanbanModule();
+kanban.setOnDrawerClosed(() => {
+  // Drawer — общий оверлей поверх любой страницы; если задачу правили с Dashboard,
+  // его карточки ("Мои задачи", статистика) нужно обновить после закрытия.
+  if (router.getCurrentRoute() === 'dashboard') {
+    dashboard.renderDashboardPage(mainContent);
+  }
+});
 router.initRouter(handleRouteChange);

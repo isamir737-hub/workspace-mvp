@@ -905,6 +905,234 @@ h1, h2, .card-title, .drawer-header h2 {
   line-height: 1.5;
 }
 
+/* ---------- Dashboard ---------- */
+
+.dashboard {
+  padding: 24px 28px;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.dashboard-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.dashboard-greeting {
+  font-family: "Raleway", "Segoe UI", sans-serif;
+  font-size: 21px;
+  font-weight: 800;
+  margin: 0 0 4px;
+}
+
+.dashboard-subtitle {
+  margin: 0 0 6px;
+  color: var(--text-muted);
+  font-size: 13.5px;
+}
+
+.dashboard-date {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12.5px;
+}
+
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: 16px;
+  align-items: start;
+}
+
+.dashboard-card {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  min-width: 0;
+}
+
+.dashboard-card.span-2 {
+  grid-column: span 2;
+}
+
+.dashboard-card-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+.dashboard-empty {
+  color: var(--text-muted);
+  font-size: 13px;
+  padding: 4px 0;
+  margin: 0;
+}
+
+.dashboard-card-action {
+  align-self: flex-start;
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--accent);
+  background: none;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+  font-family: inherit;
+}
+.dashboard-card-action:hover { text-decoration: underline; }
+
+/* Дата и время */
+.clock-time {
+  font-size: 28px;
+  font-weight: 800;
+  font-family: "Raleway", "Segoe UI", sans-serif;
+}
+.clock-meta {
+  color: var(--text-muted);
+  font-size: 13px;
+  text-transform: capitalize;
+}
+
+/* Погода */
+.weather-main {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+.weather-temp {
+  font-size: 28px;
+  font-weight: 800;
+}
+.weather-desc {
+  color: var(--text-muted);
+  font-size: 13px;
+}
+.weather-range {
+  font-size: 12.5px;
+  color: var(--text-muted);
+}
+.weather-location {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+.weather-fallback {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Встречи */
+.meeting-item {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.meeting-item:last-child { border-bottom: none; }
+.meeting-time {
+  font-size: 12.5px;
+  font-weight: 700;
+  color: var(--text);
+  flex-shrink: 0;
+  width: 44px;
+}
+.meeting-info { min-width: 0; }
+.meeting-title { font-size: 13.5px; font-weight: 600; }
+.meeting-location { font-size: 12px; color: var(--text-muted); }
+
+/* Мои задачи */
+.task-mini {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 9px 10px;
+  border-radius: 10px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  text-align: left;
+  font: inherit;
+  color: inherit;
+}
+.task-mini:hover { border-color: var(--accent); }
+.task-mini-title { font-size: 13.5px; font-weight: 600; }
+.task-mini-meta { display: flex; gap: 6px; flex-wrap: wrap; font-size: 11.5px; align-items: center; }
+.task-mini-deadline.overdue { color: var(--danger); font-weight: 700; }
+
+.priority-badge {
+  padding: 2px 8px;
+  border-radius: 999px;
+  font-weight: 600;
+}
+.priority-low { background: var(--neutral-tint); color: var(--text-muted); }
+.priority-medium { background: var(--violet-tint); color: var(--violet); }
+.priority-high { background: var(--warning-tint); color: var(--warning); }
+.priority-critical { background: var(--danger-tint); color: var(--danger); }
+
+.status-badge {
+  background: var(--neutral-tint);
+  color: var(--text-muted);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+
+/* Статистика Kanban */
+.stat-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12.5px;
+}
+.stat-label {
+  width: 92px;
+  flex-shrink: 0;
+  color: var(--text-muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.stat-bar-track {
+  flex: 1;
+  height: 6px;
+  background: var(--surface);
+  border-radius: 999px;
+  overflow: hidden;
+}
+.stat-bar-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 999px;
+}
+.stat-count {
+  width: 24px;
+  text-align: right;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.stat-row.overdue .stat-bar-fill { background: var(--danger); }
+
+/* Объявления */
+.announcement-item {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--border);
+}
+.announcement-item:last-child { border-bottom: none; }
+.announcement-title { font-size: 13.5px; font-weight: 700; margin-bottom: 2px; }
+.announcement-body { font-size: 12.5px; color: var(--text-muted); margin-bottom: 4px; line-height: 1.4; }
+.announcement-meta { font-size: 11px; color: var(--text-muted); }
+
 /* ---------- Мобильная адаптация ---------- */
 
 @media (max-width: 900px) {
@@ -931,6 +1159,13 @@ h1, h2, .card-title, .drawer-header h2 {
 
   .app-sidebar.is-open {
     transform: translateX(0);
+  }
+
+  .dashboard {
+    padding: 16px;
+  }
+  .dashboard-card.span-2 {
+    grid-column: span 1;
   }
 
   /* На узких экранах 5 колонок не помещаются по ширине — переключаемся

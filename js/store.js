@@ -34,6 +34,16 @@ export function getCompany() {
   return state.company;
 }
 
+// ---------- Календарь и объявления (read-only demo-данные для Dashboard) ----------
+
+export function getCalendarEvents() {
+  return state.calendarEvents;
+}
+
+export function getAnnouncements() {
+  return state.announcements;
+}
+
 // ---------- Пользователи ----------
 
 export function getUsers() {

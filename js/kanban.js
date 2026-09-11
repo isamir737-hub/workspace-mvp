@@ -91,6 +91,29 @@ export function openCreateTaskDrawer() {
   openCreateModal();
 }
 
+// Позволяет другим страницам (например, Dashboard) открыть drawer редактирования
+// существующей задачи, не переходя на #/kanban — drawer является общим статическим
+// оверлеем, не привязанным к текущему роуту.
+export function openEditTaskDrawer(id) {
+  openEditModal(id);
+}
+
+// Метаданные колонок для страниц, которым нужны статусы/подписи (например, Dashboard statistics).
+export function getColumnsMeta() {
+  return COLUMNS.map(c => ({ id: c.id, label: c.label }));
+}
+
+export function getColumnLabel(status) {
+  return columnLabel(status);
+}
+
+// Необязательный хук: вызывается каждый раз при закрытии drawer (сохранение/удаление/отмена).
+// Используется Dashboard, чтобы обновить свои карточки после правки задачи из общего drawer.
+let onDrawerClosed = null;
+export function setOnDrawerClosed(fn) {
+  onDrawerClosed = fn;
+}
+
 // ---------- Рендеринг доски ----------
 
 function renderBoard() {
@@ -359,6 +382,7 @@ function closeModal() {
   modalOverlay.hidden = true;
   editingTaskId = null;
   formAttachments = [];
+  if (onDrawerClosed) onDrawerClosed();
 }
 
 function toLocalInputValue(iso) {

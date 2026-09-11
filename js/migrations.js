@@ -1,7 +1,7 @@
 // Миграция данных приложения. Хранилище v1 (kanban-tasks-v1, просто массив задач)
 // переносится в единое состояние workspace-app-v2 с schemaVersion.
 
-import { DEMO_COMPANY, DEMO_USERS } from './demo-data.js';
+import { DEMO_COMPANY, DEMO_USERS, createDemoCalendarEvents, createDemoAnnouncements } from './demo-data.js';
 
 export const STORAGE_KEY = 'workspace-app-v2';
 export const SCHEMA_VERSION = 2;
@@ -65,6 +65,8 @@ function buildFreshState() {
     company: { ...DEMO_COMPANY },
     users: DEMO_USERS.map(u => ({ ...u })),
     tasks: migrateLegacyTasksFromStorage(),
+    calendarEvents: createDemoCalendarEvents(),
+    announcements: createDemoAnnouncements(),
   };
 }
 
@@ -81,6 +83,12 @@ export function loadOrMigrateState() {
         if (!parsed.company) parsed.company = { ...DEMO_COMPANY };
         if (!Array.isArray(parsed.users) || parsed.users.length === 0) {
           parsed.users = DEMO_USERS.map(u => ({ ...u }));
+        }
+        if (!Array.isArray(parsed.calendarEvents)) {
+          parsed.calendarEvents = createDemoCalendarEvents();
+        }
+        if (!Array.isArray(parsed.announcements)) {
+          parsed.announcements = createDemoAnnouncements();
         }
         return parsed;
       }
