@@ -216,24 +216,67 @@ export function updateAnnouncement(id, patch) {
   return { ok, announcement };
 }
 
-// ---------- Уведомления (in-app, без отдельного Notifications Center на этом этапе) ----------
+// ---------- Уведомления (Notification Center) ----------
 
 export function getNotifications() {
   return state.notifications;
 }
 
+export function getNotification(id) {
+  return state.notifications.find(n => n.id === id) || null;
+}
+
+export function getNotificationsForUser(userId) {
+  return state.notifications.filter(n => n.recipientId === userId);
+}
+
+// input: {companyId?, recipientId, type, title?, message?, entityType?, entityId?,
+// dedupeKey?}. Если dedupeKey уже встречается среди существующих notifications —
+// новая НЕ создаётся, возвращается уже существующая (deduped:true) — единая точка,
+// где вызывающий код (deadline-checker и т.п.) может не беспокоиться о повторных
+// срабатываниях каждые 30с.
 export function createNotification(input) {
+  if (input.dedupeKey) {
+    const existing = state.notifications.find(n => n.dedupeKey === input.dedupeKey);
+    if (existing) return { ok: true, notification: existing, deduped: true };
+  }
   const notification = {
     id: generateId('notif'),
     companyId: input.companyId || state.company.id,
-    type: input.type,
     recipientId: input.recipientId,
-    entityId: input.entityId,
+    type: input.type,
+    title: input.title || '',
+    message: input.message || '',
+    entityType: input.entityType || null,
+    entityId: input.entityId || null,
+    read: false,
+    dedupeKey: input.dedupeKey || null,
     createdAt: new Date().toISOString(),
   };
   state.notifications.push(notification);
   const ok = persist();
+  return { ok, notification, deduped: false };
+}
+
+export function updateNotification(id, patch) {
+  const notification = getNotification(id);
+  if (!notification) return { ok: false, notification: null };
+  Object.assign(notification, patch);
+  const ok = persist();
   return { ok, notification };
+}
+
+export function markNotificationRead(id) {
+  return updateNotification(id, { read: true });
+}
+
+export function markAllNotificationsRead(userId) {
+  let changed = false;
+  for (const n of state.notifications) {
+    if (n.recipientId === userId && !n.read) { n.read = true; changed = true; }
+  }
+  const ok = changed ? persist() : true;
+  return { ok, changed };
 }
 
 // ---------- Пользователи ----------

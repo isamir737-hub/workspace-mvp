@@ -2,6 +2,7 @@
 // через store.js. Owner может редактировать; Manager/Employee — read-only.
 
 import * as store from './store.js';
+import * as notifications from './notifications.js';
 
 const ROLE_LABELS = { manager: 'Manager', employee: 'Employee' };
 const MAX_AVATAR_PX = 128;
@@ -127,6 +128,14 @@ export function renderCompanyPage(container) {
   ensureEmployeeFormDrawer();
   ensureEmployeeDetailDrawer();
   ensureAnnouncementFormDrawer();
+  rebuildPage();
+}
+
+// Вызывается из app.js после клика на announcement-notification — переключает
+// уже отрисованную страницу #/company на вкладку Announcements.
+export function showAnnouncementsTab() {
+  if (!containerEl) return;
+  currentTab = 'announcements';
   rebuildPage();
 }
 
@@ -1342,6 +1351,28 @@ let annOverlayEl, annTitleEl, annForm, annTitleInput, annBodyInput,
   annCloseBtn, annCancelBtn, annBuilt = false;
 let editingAnnouncementId = null;
 
+// Публикация нового announcement уведомляет всех АКТИВНЫХ пользователей компании,
+// кроме автора. Вызывается только при create — при edit/archive повторной рассылки нет.
+function notifyAnnouncementPublished(announcement) {
+  const recipients = store.getUsers().filter(u =>
+    u.companyId === announcement.companyId && u.id !== announcement.authorId && u.active !== false
+  );
+  let notifiedAny = false;
+  for (const u of recipients) {
+    const result = store.createNotification({
+      companyId: announcement.companyId,
+      type: 'announcement',
+      recipientId: u.id,
+      entityType: 'announcement',
+      entityId: announcement.id,
+      title: 'Новое объявление',
+      message: announcement.title,
+    });
+    if (result.ok) notifiedAny = true;
+  }
+  if (notifiedAny) notifications.refresh();
+}
+
 function ensureAnnouncementFormDrawer() {
   if (annBuilt) return;
   annBuilt = true;
@@ -1426,9 +1457,11 @@ function ensureAnnouncementFormDrawer() {
     if (!body) { annBodyInput.focus(); return; }
 
     if (editingAnnouncementId) {
+      // Обычное редактирование существующего announcement — повторно не рассылаем.
       store.updateAnnouncement(editingAnnouncementId, { title, body });
     } else {
-      store.createAnnouncement({ title, body });
+      const result = store.createAnnouncement({ title, body });
+      if (result.ok) notifyAnnouncementPublished(result.announcement);
     }
     close();
     if (currentTab === 'announcements') renderAnnouncementList();

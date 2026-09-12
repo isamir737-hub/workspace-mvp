@@ -4,6 +4,7 @@
 
 import * as store from './store.js';
 import * as kanban from './kanban.js';
+import * as notifications from './notifications.js';
 
 const WEEKDAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const MONTH_CELL_MAX_ENTRIES = 3;
@@ -655,6 +656,29 @@ function ensureEventDrawer() {
   wireEventDrawerEvents();
 }
 
+// Уведомляет перечисленных participantIds о встрече (кроме создателя и неактивных
+// пользователей). Используется и при создании (все участники), и при edit (только
+// вновь добавленные) — вызывающий код сам решает, кого передать в participantIds.
+function notifyEventParticipants(event, participantIds) {
+  let notifiedAny = false;
+  for (const pid of participantIds) {
+    if (pid === event.creatorId) continue;
+    const user = store.getUserById(pid);
+    if (!user || user.active === false) continue;
+    const result = store.createNotification({
+      companyId: event.companyId,
+      type: 'event_invitation',
+      recipientId: pid,
+      entityType: 'event',
+      entityId: event.id,
+      title: 'Приглашение на встречу',
+      message: event.title,
+    });
+    if (result.ok) notifiedAny = true;
+  }
+  if (notifiedAny) notifications.refresh();
+}
+
 function renderParticipantList(selectedIds) {
   participantListEl.innerHTML = '';
   const currentUser = store.getCurrentUser();
@@ -720,7 +744,9 @@ function openCreateEventDrawer(prefillDate) {
   fieldEventTitle.focus();
 }
 
-function openEditEventDrawer(id) {
+// Экспортируется, чтобы notifications.js мог открыть существующий Event drawer
+// по entityId после клика на event_invitation — без создания второго drawer.
+export function openEditEventDrawer(id) {
   const event = store.getCalendarEvent(id);
   if (!event) return;
   editingEventId = id;
@@ -842,29 +868,11 @@ function wireEventDrawerEvents() {
       if (result.ok) {
         // Уведомляем только вновь добавленных участников — не дублировать всем при каждом edit.
         const newlyAdded = participantIds.filter(id => !oldParticipantIds.includes(id));
-        for (const pid of newlyAdded) {
-          if (pid === result.event.creatorId) continue;
-          store.createNotification({
-            companyId: result.event.companyId,
-            type: 'event_invitation',
-            recipientId: pid,
-            entityId: result.event.id,
-          });
-        }
+        notifyEventParticipants(result.event, newlyAdded);
       }
     } else {
       const result = store.createCalendarEvent(patch);
-      if (result.ok) {
-        for (const pid of result.event.participantIds) {
-          if (pid === result.event.creatorId) continue;
-          store.createNotification({
-            companyId: result.event.companyId,
-            type: 'event_invitation',
-            recipientId: pid,
-            entityId: result.event.id,
-          });
-        }
-      }
+      if (result.ok) notifyEventParticipants(result.event, result.event.participantIds);
     }
 
     closeEventDrawer();

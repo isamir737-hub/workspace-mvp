@@ -131,6 +131,49 @@ function normalizeAnnouncement(ann) {
   };
 }
 
+// Этап 8 нормализовал Notification к модели {id, companyId, recipientId, type, title,
+// message, entityType, entityId, read, dedupeKey, createdAt}. Старые notifications
+// (task_assigned/event_invitation с этапов 3/5) хранили только type/recipientId/entityId —
+// title/message/entityType для них выводятся здесь один раз по уже нормализованным
+// task/event/announcement и сохраняются, чтобы UI больше не заботился о fallback.
+const ENTITY_TYPE_BY_NOTIFICATION_TYPE = {
+  task_assigned: 'task',
+  task_deadline_soon: 'task',
+  task_overdue: 'task',
+  event_invitation: 'event',
+  announcement: 'announcement',
+};
+
+const FALLBACK_TITLE_BY_TYPE = {
+  task_assigned: 'Вам назначена задача',
+  task_deadline_soon: 'Дедлайн скоро',
+  task_overdue: 'Задача просрочена',
+  event_invitation: 'Приглашение на встречу',
+  announcement: 'Новое объявление',
+};
+
+function inferNotificationMessage(entityType, entityId, state) {
+  if (entityType === 'task') return (state.tasks.find(t => t.id === entityId) || {}).title || '';
+  if (entityType === 'event') return (state.calendarEvents.find(e => e.id === entityId) || {}).title || '';
+  if (entityType === 'announcement') return (state.announcements.find(a => a.id === entityId) || {}).title || '';
+  return '';
+}
+
+function normalizeNotification(n, state) {
+  const entityType = n.entityType || ENTITY_TYPE_BY_NOTIFICATION_TYPE[n.type] || null;
+  const createdAt = n.createdAt || new Date().toISOString();
+  return {
+    ...n,
+    companyId: n.companyId || state.company.id,
+    entityType,
+    title: n.title || FALLBACK_TITLE_BY_TYPE[n.type] || 'Уведомление',
+    message: n.message !== undefined && n.message !== null ? n.message : inferNotificationMessage(entityType, n.entityId, state),
+    read: n.read !== undefined ? n.read : false,
+    dedupeKey: n.dedupeKey !== undefined ? n.dedupeKey : null,
+    createdAt,
+  };
+}
+
 function buildFreshState() {
   return {
     schemaVersion: SCHEMA_VERSION,
@@ -143,6 +186,14 @@ function buildFreshState() {
     notes: [],
     whiteboards: [],
   };
+}
+
+// normalizeNotification нужен полностью собранный state (tasks/calendarEvents/
+// announcements/company) для fallback-подстановки message у старых notifications —
+// поэтому применяется отдельным проходом после того, как остальные коллекции готовы.
+function normalizeNotificationsOf(state) {
+  state.notifications = state.notifications.map(n => normalizeNotification(n, state));
+  return state;
 }
 
 // Загружает workspace-app-v2, если он уже существует; иначе строит его заново,
@@ -178,11 +229,12 @@ export function loadOrMigrateState() {
         if (!Array.isArray(parsed.whiteboards)) {
           parsed.whiteboards = [];
         }
+        normalizeNotificationsOf(parsed);
         return parsed;
       }
     }
   } catch (e) {
     console.error('Не удалось прочитать workspace-app-v2, состояние будет пересобрано из legacy-данных', e);
   }
-  return buildFreshState();
+  return normalizeNotificationsOf(buildFreshState());
 }

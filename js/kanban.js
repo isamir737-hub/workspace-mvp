@@ -2,6 +2,12 @@
 // Все обращения к данным идут через store.js — модуль не трогает localStorage напрямую.
 
 import * as store from './store.js';
+import { showToast } from './toast.js';
+import * as notifications from './notifications.js';
+
+// Порог "скоро дедлайн" (часы) — общий и для visual state карточки, и для
+// persistent-уведомления task_deadline_soon.
+const DEADLINE_SOON_HOURS = 24;
 
 const COLUMNS = [
   { id: 'backlog', label: 'Backlog', color: 'neutral' },
@@ -633,7 +639,7 @@ function getDeadlineInfo(task) {
   if (isNaN(deadlineMs)) return { state: 'none' };
   if (deadlineMs < now) return { state: 'overdue' };
   const hoursLeft = (deadlineMs - now) / 3600000;
-  if (hoursLeft <= 24) return { state: 'soon' };
+  if (hoursLeft <= DEADLINE_SOON_HOURS) return { state: 'soon' };
   return { state: 'ok' };
 }
 
@@ -880,17 +886,14 @@ function wireDrawerEvents() {
 
     let result;
     if (editingTaskId) {
+      const previousAssigneeId = (store.getTask(editingTaskId) || {}).assigneeId;
       result = store.updateTask(editingTaskId, patch);
+      if (result.ok && patch.assigneeId && patch.assigneeId !== previousAssigneeId) {
+        notifyTaskAssigned(result.task);
+      }
     } else {
       result = store.createTask({ ...patch, comments: [], status: 'backlog' });
-      if (result.ok && result.task.assigneeId !== result.task.creatorId) {
-        store.createNotification({
-          companyId: result.task.companyId,
-          type: 'task_assigned',
-          recipientId: result.task.assigneeId,
-          entityId: result.task.id,
-        });
-      }
+      if (result.ok) notifyTaskAssigned(result.task);
       maybeRequestNotificationPermission();
     }
 
@@ -1069,35 +1072,77 @@ function maybeRequestNotificationPermission() {
   }
 }
 
-function showToast(title, body) {
-  const container = document.getElementById('toastContainer');
-  const toast = document.createElement('div');
-  toast.className = 'toast';
-  const strong = document.createElement('strong');
-  strong.textContent = title;
-  toast.appendChild(strong);
-  const text = document.createElement('div');
-  text.textContent = body;
-  toast.appendChild(text);
-  container.appendChild(toast);
-  setTimeout(() => toast.remove(), 8000);
+// Уведомляет нового assignee о назначении задачи — используется и при создании,
+// и при переназначении (edit). Не уведомляет себя самого и неактивных пользователей.
+function notifyTaskAssigned(task) {
+  if (!task.assigneeId) return;
+  const currentUser = store.getCurrentUser();
+  if (currentUser && task.assigneeId === currentUser.id) return;
+  const assignee = store.getUserById(task.assigneeId);
+  if (!assignee || assignee.active === false) return;
+  const result = store.createNotification({
+    companyId: task.companyId,
+    type: 'task_assigned',
+    recipientId: task.assigneeId,
+    entityType: 'task',
+    entityId: task.id,
+    title: 'Вам назначена задача',
+    message: task.title,
+  });
+  if (result.ok) notifications.refresh();
 }
 
 function checkReminders() {
   const now = Date.now();
+  let notifiedAny = false;
   for (const task of store.getTasks()) {
-    if (task.reminderShown) continue;
-    if (task.reminderMinutes === null || task.reminderMinutes === undefined) continue;
-    if (!task.deadline) continue;
-    if (task.status === 'done') continue;
-    const deadlineMs = new Date(task.deadline).getTime();
-    if (isNaN(deadlineMs)) continue;
-    const triggerMs = deadlineMs - task.reminderMinutes * 60000;
-    if (now >= triggerMs) {
-      fireReminder(task);
-      store.updateTask(task.id, { reminderShown: true });
+    if (task.reminderMinutes !== null && task.reminderMinutes !== undefined && task.deadline
+      && task.status !== 'done' && !task.reminderShown) {
+      const deadlineMs = new Date(task.deadline).getTime();
+      if (!isNaN(deadlineMs)) {
+        const triggerMs = deadlineMs - task.reminderMinutes * 60000;
+        if (now >= triggerMs) {
+          fireReminder(task);
+          store.updateTask(task.id, { reminderShown: true });
+        }
+      }
     }
+    if (checkDeadlinePersistentNotification(task, now)) notifiedAny = true;
   }
+  if (notifiedAny) notifications.refresh();
+}
+
+// Persistent-уведомления task_deadline_soon/task_overdue (в отличие от reminderMinutes —
+// эти не зависят от того, настроил ли пользователь напоминание). dedupeKey включает
+// deadline, поэтому при неизменном дедлайне повторно не создаются — store.createNotification
+// сам проверяет dedupeKey перед созданием. Возвращает true, если была создана НОВАЯ notification.
+function checkDeadlinePersistentNotification(task, now) {
+  if (!task.deadline || task.status === 'done' || !task.assigneeId) return false;
+  const assignee = store.getUserById(task.assigneeId);
+  if (!assignee || assignee.active === false) return false;
+  const deadlineMs = new Date(task.deadline).getTime();
+  if (isNaN(deadlineMs)) return false;
+
+  let type, dedupePrefix, title;
+  if (deadlineMs < now) {
+    type = 'task_overdue'; dedupePrefix = 'task-overdue'; title = 'Задача просрочена';
+  } else if ((deadlineMs - now) / 3600000 <= DEADLINE_SOON_HOURS) {
+    type = 'task_deadline_soon'; dedupePrefix = 'task-deadline-soon'; title = 'Дедлайн скоро';
+  } else {
+    return false;
+  }
+
+  const result = store.createNotification({
+    companyId: task.companyId,
+    type,
+    recipientId: task.assigneeId,
+    entityType: 'task',
+    entityId: task.id,
+    title,
+    message: task.title,
+    dedupeKey: `${dedupePrefix}:${task.id}:${task.deadline}`,
+  });
+  return result.ok && !result.deduped;
 }
 
 function fireReminder(task) {

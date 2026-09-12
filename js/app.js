@@ -8,6 +8,7 @@ import * as dashboard from './dashboard.js';
 import * as calendar from './calendar.js';
 import * as workspace from './workspace.js';
 import * as company from './company.js';
+import * as notifications from './notifications.js';
 
 const ROLE_LABELS = { owner: 'Owner', manager: 'Manager', employee: 'Employee' };
 
@@ -48,6 +49,9 @@ function updateUserChrome() {
   sidebarUserRole.textContent = roleLabel;
   topbarUserAvatar.textContent = label;
   topbarUserAvatar.title = user.name + ' · ' + roleLabel;
+  // Текущий пользователь мог смениться (login/logout/demo user switching) —
+  // badge должен сразу отражать unread count именно нового пользователя.
+  notifications.refresh();
 }
 
 function setActiveNav(route) {
@@ -62,6 +66,19 @@ function closeMobileSidebar() {
   sidebarOverlay.hidden = true;
 }
 
+// После клика на notification (см. notifications.js) переход на связанный роут может
+// потребовать смены хэша, которая рендерит страницу асинхронно (hashchange). Поэтому
+// открытие конкретной сущности (Task/Event drawer, Announcements tab) выполняется здесь —
+// сразу после того, как соответствующая страница действительно отрисована, а не сразу
+// после router.navigate(), которое могло ещё не сработать.
+function openPendingNotificationEntity(route) {
+  const pending = notifications.consumePendingOpen(route);
+  if (!pending) return;
+  if (pending.entityType === 'task') kanban.openEditTaskDrawer(pending.entityId);
+  else if (pending.entityType === 'event') calendar.openEditEventDrawer(pending.entityId);
+  else if (pending.entityType === 'announcement') company.showAnnouncementsTab();
+}
+
 function renderRoute(route) {
   setActiveNav(route);
   if (route === 'kanban') {
@@ -71,6 +88,7 @@ function renderRoute(route) {
       pendingCreateTask = false;
       kanban.openCreateTaskDrawer();
     }
+    openPendingNotificationEntity('kanban');
     return;
   }
   if (route === 'dashboard') {
@@ -81,6 +99,7 @@ function renderRoute(route) {
   if (route === 'calendar') {
     pageTitle.textContent = 'Календарь';
     calendar.renderCalendarPage(mainContent);
+    openPendingNotificationEntity('calendar');
     return;
   }
   if (route === 'workspace') {
@@ -90,6 +109,7 @@ function renderRoute(route) {
   }
   pageTitle.textContent = 'Компания';
   company.renderCompanyPage(mainContent);
+  openPendingNotificationEntity('company');
 }
 
 function handleRouteChange() {
@@ -162,6 +182,7 @@ sidebarNewTaskBtn.addEventListener('click', () => {
 // ---------- Инициализация ----------
 
 store.init();
+notifications.initNotificationCenter();
 kanban.initKanbanModule();
 kanban.setOnDrawerClosed(() => {
   // Drawer — общий оверлей поверх любой страницы; если задачу правили с Dashboard,
