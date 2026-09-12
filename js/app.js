@@ -6,11 +6,11 @@ import * as router from './router.js';
 import * as kanban from './kanban.js';
 import * as dashboard from './dashboard.js';
 import * as calendar from './calendar.js';
+import * as workspace from './workspace.js';
 
 const ROLE_LABELS = { owner: 'Owner', manager: 'Manager', employee: 'Employee' };
 
 const PAGE_META = {
-  workspace: { title: 'Доска и заметки', description: 'Whiteboard и заметки появятся здесь.' },
   company: { title: 'Компания', description: 'Управление компанией и сотрудниками появится здесь.' },
 };
 
@@ -101,6 +101,11 @@ function renderRoute(route) {
   if (route === 'calendar') {
     pageTitle.textContent = 'Календарь';
     calendar.renderCalendarPage(mainContent);
+    return;
+  }
+  if (route === 'workspace') {
+    pageTitle.textContent = 'Доска и заметки';
+    workspace.renderWorkspacePage(mainContent);
     return;
   }
   const meta = PAGE_META[route];

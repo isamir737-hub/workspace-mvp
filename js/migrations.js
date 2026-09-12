@@ -90,6 +90,8 @@ function buildFreshState() {
     calendarEvents: createDemoCalendarEvents(),
     announcements: createDemoAnnouncements(),
     notifications: [],
+    notes: [],
+    whiteboards: [],
   };
 }
 
@@ -117,6 +119,12 @@ export function loadOrMigrateState() {
         }
         if (!Array.isArray(parsed.notifications)) {
           parsed.notifications = [];
+        }
+        if (!Array.isArray(parsed.notes)) {
+          parsed.notes = [];
+        }
+        if (!Array.isArray(parsed.whiteboards)) {
+          parsed.whiteboards = [];
         }
         return parsed;
       }

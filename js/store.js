@@ -82,6 +82,95 @@ export function deleteCalendarEvent(id) {
   return persist();
 }
 
+// ---------- Заметки (Notes) ----------
+
+export function getNotes() {
+  return state.notes;
+}
+
+export function getNote(id) {
+  return state.notes.find(n => n.id === id) || null;
+}
+
+export function createNote(input) {
+  const now = new Date().toISOString();
+  const currentUser = getCurrentUser();
+  const note = {
+    id: generateId('note'),
+    companyId: state.company.id,
+    ownerId: currentUser ? currentUser.id : null,
+    title: '',
+    content: '',
+    visibility: 'private',
+    sharedWith: [],
+    createdAt: now,
+    updatedAt: now,
+    ...input,
+  };
+  state.notes.push(note);
+  const ok = persist();
+  return { ok, note };
+}
+
+export function updateNote(id, patch) {
+  const note = getNote(id);
+  if (!note) return { ok: false, note: null };
+  Object.assign(note, patch);
+  note.updatedAt = new Date().toISOString();
+  const ok = persist();
+  return { ok, note };
+}
+
+export function deleteNote(id) {
+  state.notes = state.notes.filter(n => n.id !== id);
+  return persist();
+}
+
+// ---------- Whiteboards ----------
+
+export function getWhiteboards() {
+  return state.whiteboards;
+}
+
+export function getWhiteboard(id) {
+  return state.whiteboards.find(b => b.id === id) || null;
+}
+
+export function createWhiteboard(input) {
+  const now = new Date().toISOString();
+  const currentUser = getCurrentUser();
+  const board = {
+    id: generateId('board'),
+    companyId: state.company.id,
+    ownerId: currentUser ? currentUser.id : null,
+    title: '',
+    visibility: 'private',
+    sharedWith: [],
+    viewport: { x: 0, y: 0, zoom: 1 },
+    objects: [],
+    createdAt: now,
+    updatedAt: now,
+    ...input,
+  };
+  state.whiteboards.push(board);
+  const ok = persist();
+  return { ok, board };
+}
+
+export function updateWhiteboard(id, patch) {
+  const board = getWhiteboard(id);
+  if (!board) return { ok: false, board: null };
+  Object.assign(board, patch);
+  board.updatedAt = new Date().toISOString();
+  const ok = persist();
+  return { ok, board };
+}
+
+export function deleteWhiteboard(id) {
+  state.whiteboards = state.whiteboards.filter(b => b.id !== id);
+  return persist();
+}
+
 // ---------- Объявления (read-only demo-данные для Dashboard) ----------
 
 export function getAnnouncements() {
