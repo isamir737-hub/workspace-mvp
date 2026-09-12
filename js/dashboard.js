@@ -273,10 +273,16 @@ function renderWeatherCard() {
   body.innerHTML = '';
 
   if (weatherState.status === 'loading') {
-    const p = document.createElement('p');
-    p.className = 'weather-fallback';
-    p.textContent = 'Определяем местоположение...';
-    body.appendChild(p);
+    // Лёгкий skeleton вместо резкого появления текста — сам async-запрос
+    // (геолокация + fetch) не меняется, это только visual placeholder на время ожидания.
+    const line1 = document.createElement('div');
+    line1.className = 'skeleton-line';
+    line1.style.width = '70%';
+    body.appendChild(line1);
+    const line2 = document.createElement('div');
+    line2.className = 'skeleton-line';
+    line2.style.width = '45%';
+    body.appendChild(line2);
     return;
   }
 

@@ -81,7 +81,7 @@ function buildToolbar() {
   prevBtn.type = 'button';
   prevBtn.className = 'icon-btn';
   prevBtn.setAttribute('aria-label', 'Предыдущий период');
-  prevBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>';
+  prevBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>';
   prevBtn.addEventListener('click', () => shiftPeriod(-1));
   nav.appendChild(prevBtn);
 
@@ -89,7 +89,7 @@ function buildToolbar() {
   nextBtn.type = 'button';
   nextBtn.className = 'icon-btn';
   nextBtn.setAttribute('aria-label', 'Следующий период');
-  nextBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>';
+  nextBtn.innerHTML = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="9 18 15 12 9 6"/></svg>';
   nextBtn.addEventListener('click', () => shiftPeriod(1));
   nav.appendChild(nextBtn);
 

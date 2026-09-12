@@ -19,6 +19,17 @@
   --accent-hover: #cc1a20;
   --accent-tint: #fde8e8;
 
+  /* v0.1.1 UI polish: производные существующей палитры для единообразных
+     hover/active/selected/focus состояний — новых цветов НЕ вводим, только
+     оттенки, максимально близкие к --accent/--surface/--border/--text-muted. */
+  --accent-soft: var(--accent-tint);
+  --accent-border: rgba(236, 33, 39, 0.2);
+  --accent-glow: rgba(236, 33, 39, 0.14);
+  --surface-hover: #eeeeef;
+  --surface-active: #e7e7e9;
+  --border-strong: #d9d9dc;
+  --text-muted-strong: #53535a;
+
   /* Дополнительные статусные цвета */
   --success: #178a5a;
   --success-tint: #e2f4ec;
@@ -38,6 +49,11 @@
   --dot-mint: #6ea28c;
   --dot-yellow: #b6a253;
   --dot-green: #5c8f6e;
+
+  /* Единый UI-шрифт — используется и для текста, и для заголовков (иерархия
+     через font-weight, не через смену гарнитуры). Хорошо покрывает
+     en/fr/ru-текст без экзотических начертаний. */
+  --font-sans: "Inter", "Roboto", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -50,7 +66,7 @@ html, body {
 
 body {
   margin: 0;
-  font-family: "Montserrat", "Segoe UI", -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+  font-family: var(--font-sans);
   background: var(--bg);
   color: var(--text);
   -webkit-font-smoothing: antialiased;
@@ -59,7 +75,36 @@ body {
 }
 
 h1, h2, .card-title, .drawer-header h2 {
-  font-family: "Raleway", "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
+  letter-spacing: -0.01em;
+}
+
+/* ---------- Micro-interactions (transitions + focus-visible + reduced motion) ---------- */
+/* Общее правило-основа: конкретные компоненты ниже переопределяют то, что им
+   нужно (более специфичный селектор побеждает по каскаду), это правило только
+   даёт единый лёгкий transition там, где его ещё не было. */
+button, .nav-link, a, input, select, textarea {
+  transition: background-color 150ms ease, border-color 150ms ease, color 150ms ease,
+    box-shadow 150ms ease, transform 100ms ease, opacity 150ms ease;
+}
+
+button:focus-visible,
+a:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible,
+[tabindex]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    scroll-behavior: auto !important;
+  }
 }
 
 /* Скрываем нативные полосы прокрутки там, где скролл всё же нужен (свайп),
@@ -136,12 +181,12 @@ h1, h2, .card-title, .drawer-header h2 {
   font-weight: 600;
   font-family: inherit;
   cursor: pointer;
-  transition: background 0.15s, transform 0.1s;
   display: inline-flex;
   align-items: center;
 }
-.btn-primary:hover { background: var(--accent-hover); }
-.btn-primary:active { transform: scale(0.98); }
+.btn-primary:hover { background: var(--accent-hover); transform: translateY(-1px); box-shadow: 0 4px 10px var(--accent-glow); }
+.btn-primary:active { transform: translateY(0) scale(0.98); box-shadow: none; }
+.btn-primary:disabled { opacity: 0.5; cursor: not-allowed; transform: none; box-shadow: none; }
 
 .btn-secondary {
   background: var(--surface);
@@ -154,7 +199,9 @@ h1, h2, .card-title, .drawer-header h2 {
   font-family: inherit;
   cursor: pointer;
 }
-.btn-secondary:hover { background: var(--surface-sunken); }
+.btn-secondary:hover { background: var(--surface-hover); border-color: var(--border-strong); }
+.btn-secondary:active { background: var(--surface-active); }
+.btn-secondary:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .btn-small {
   padding: 6px 12px;
@@ -172,11 +219,13 @@ h1, h2, .card-title, .drawer-header h2 {
   font-family: inherit;
   cursor: pointer;
 }
-.btn-danger:hover { background: #fad3d3; }
+.btn-danger:hover { background: #fad3d3; border-color: #f2a9a9; }
+.btn-danger:active { background: #f8c2c2; }
+.btn-danger:disabled { opacity: 0.5; cursor: not-allowed; }
 
 .icon-btn {
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   font-size: 16px;
   color: var(--text-muted);
   cursor: pointer;
@@ -184,7 +233,9 @@ h1, h2, .card-title, .drawer-header h2 {
   border-radius: 8px;
   line-height: 1;
 }
-.icon-btn:hover { background: var(--surface-sunken); color: var(--text); }
+.icon-btn:hover { background: var(--surface-hover); color: var(--text); }
+.icon-btn:active { background: var(--surface-active); }
+.icon-btn:disabled { opacity: 0.5; cursor: not-allowed; }
 
 /* ---------- Доска ---------- */
 
@@ -413,20 +464,21 @@ h1, h2, .card-title, .drawer-header h2 {
   color: var(--text-muted);
   font-size: 13px;
   text-align: center;
-  padding: 16px 10px;
+  padding: 28px 16px;
 }
 
 .empty-hint-title {
   font-weight: 600;
-  color: var(--text-muted);
-  font-size: 13px;
+  color: var(--text-muted-strong);
+  font-size: 13.5px;
 }
 
 .empty-hint-helper {
-  font-size: 11.5px;
+  font-size: 12px;
   color: var(--text-muted);
-  opacity: 0.85;
-  margin-top: 4px;
+  opacity: 0.9;
+  margin-top: 5px;
+  line-height: 1.5;
 }
 
 /* Цветовые акценты колонок (Backlog / To Do / In Progress / In Review / Done) */
@@ -584,11 +636,27 @@ h1, h2, .card-title, .drawer-header h2 {
   width: 100%;
 }
 
+.field input:hover:not(:disabled):not(:focus),
+.field textarea:hover:not(:disabled):not(:focus),
+.field select:hover:not(:disabled) {
+  border-color: var(--border-strong);
+}
+
 .field input:focus,
 .field textarea:focus,
 .field select:focus {
   outline: 2px solid var(--accent);
   outline-offset: -1px;
+  box-shadow: 0 0 0 4px var(--accent-glow);
+}
+
+.field input:disabled,
+.field textarea:disabled,
+.field select:disabled {
+  background: var(--surface-sunken);
+  color: var(--text-muted);
+  cursor: not-allowed;
+  opacity: 0.75;
 }
 
 .field-hint.error {
@@ -751,6 +819,11 @@ h1, h2, .card-title, .drawer-header h2 {
 .notification-bell-btn {
   position: relative;
 }
+.notification-bell-btn[aria-expanded="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent-border);
+}
 
 .notification-badge {
   position: absolute;
@@ -801,6 +874,7 @@ h1, h2, .card-title, .drawer-header h2 {
   margin: 0;
   font-size: 15px;
   font-weight: 800;
+  letter-spacing: -0.01em;
 }
 
 .notification-panel-actions {
@@ -983,7 +1057,7 @@ h1, h2, .card-title, .drawer-header h2 {
 
 /* Имя бренда рядом с brand-dot — используется на экране входа и в sidebar */
 .brand-name {
-  font-family: "Raleway", "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   font-weight: 800;
   font-size: 16px;
   color: var(--text);
@@ -1025,6 +1099,7 @@ h1, h2, .card-title, .drawer-header h2 {
   gap: 10px;
   padding: 10px 12px;
   border-radius: 10px;
+  border: 1px solid transparent;
   color: var(--text-muted);
   font-size: 14px;
   font-weight: 600;
@@ -1032,13 +1107,14 @@ h1, h2, .card-title, .drawer-header h2 {
 }
 
 .nav-link:hover {
-  background: var(--surface-sunken);
+  background: var(--surface-hover);
   color: var(--text);
 }
 
 .nav-link[aria-current="page"] {
-  background: var(--accent-tint);
+  background: var(--accent-soft);
   color: var(--accent);
+  border-color: var(--accent-border);
 }
 
 .nav-link svg {
@@ -1171,7 +1247,7 @@ h1, h2, .card-title, .drawer-header h2 {
 }
 
 .dashboard-greeting {
-  font-family: "Raleway", "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   font-size: 21px;
   font-weight: 800;
   margin: 0 0 4px;
@@ -1244,7 +1320,8 @@ h1, h2, .card-title, .drawer-header h2 {
 .clock-time {
   font-size: 28px;
   font-weight: 800;
-  font-family: "Raleway", "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
+  letter-spacing: -0.01em;
 }
 .clock-meta {
   color: var(--text-muted);
@@ -1261,6 +1338,7 @@ h1, h2, .card-title, .drawer-header h2 {
 .weather-temp {
   font-size: 28px;
   font-weight: 800;
+  letter-spacing: -0.01em;
 }
 .weather-desc {
   color: var(--text-muted);
@@ -1278,6 +1356,28 @@ h1, h2, .card-title, .drawer-header h2 {
   font-size: 13px;
   color: var(--text-muted);
   margin: 0;
+}
+
+/* Простой skeleton для async-состояний (сейчас — только погода на Dashboard, пока
+   идёт geolocation+fetch) — не вводит новых loading-состояний там, где их не было. */
+.skeleton-line {
+  height: 12px;
+  border-radius: 6px;
+  background: var(--surface-hover);
+  overflow: hidden;
+  position: relative;
+}
+.skeleton-line + .skeleton-line { margin-top: 8px; }
+.skeleton-line::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  transform: translateX(-100%);
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.7), transparent);
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes skeleton-shimmer {
+  100% { transform: translateX(100%); }
 }
 
 /* Встречи */
@@ -1314,7 +1414,7 @@ h1, h2, .card-title, .drawer-header h2 {
   font: inherit;
   color: inherit;
 }
-.task-mini:hover { border-color: var(--accent); }
+.task-mini:hover { border-color: var(--accent); box-shadow: var(--shadow); }
 .task-mini-title { font-size: 13.5px; font-weight: 600; }
 .task-mini-meta { display: flex; gap: 6px; flex-wrap: wrap; font-size: 11.5px; align-items: center; }
 .task-mini-deadline.overdue { color: var(--danger); font-weight: 700; }
@@ -1446,7 +1546,7 @@ h1, h2, .card-title, .drawer-header h2 {
 }
 
 .kanban-header-title {
-  font-family: "Raleway", "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   font-size: 20px;
   font-weight: 800;
   margin: 0 0 4px;
@@ -1474,6 +1574,7 @@ h1, h2, .card-title, .drawer-header h2 {
   border-radius: 999px;
   padding: 7px 12px;
 }
+.kanban-search:hover { border-color: var(--border-strong); }
 .kanban-search svg { color: var(--text-muted); flex-shrink: 0; }
 .kanban-search input {
   border: none;
@@ -1488,12 +1589,20 @@ h1, h2, .card-title, .drawer-header h2 {
   outline: 2px solid var(--accent);
   outline-offset: 1px;
 }
+.kanban-search input:focus-visible {
+  outline: none; /* фокус уже показан через :focus-within на всей пилюле-обёртке */
+}
 
 .kanban-filters-toggle {
   position: relative;
   display: inline-flex;
   align-items: center;
   gap: 6px;
+}
+.kanban-filters-toggle[aria-expanded="true"] {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent-border);
 }
 
 .filters-dot {
@@ -1537,6 +1646,8 @@ h1, h2, .card-title, .drawer-header h2 {
   color: var(--text);
   min-width: 140px;
 }
+.filter-field select:hover { border-color: var(--border-strong); }
+.filter-field select:focus { outline: 2px solid var(--accent); outline-offset: -1px; }
 
 .filter-checkbox {
   display: flex;
@@ -1570,7 +1681,7 @@ h1, h2, .card-title, .drawer-header h2 {
 }
 
 .calendar-header-title {
-  font-family: "Raleway", "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   font-size: 20px;
   font-weight: 800;
   margin: 0 0 4px;
@@ -1616,7 +1727,7 @@ h1, h2, .card-title, .drawer-header h2 {
 
 .view-switch-btn {
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   color: var(--text-muted);
   padding: 6px 14px;
   font-size: 13px;
@@ -1625,11 +1736,11 @@ h1, h2, .card-title, .drawer-header h2 {
   border-radius: 999px;
   cursor: pointer;
 }
-.view-switch-btn:hover { color: var(--text); }
+.view-switch-btn:hover { color: var(--text); background: var(--surface-hover); }
 .view-switch-btn.active {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: var(--shadow);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent-border);
 }
 
 .calendar-body {
@@ -1936,7 +2047,7 @@ h1, h2, .card-title, .drawer-header h2 {
 }
 
 .workspace-header-title {
-  font-family: "Raleway", "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   font-size: 20px;
   font-weight: 800;
   margin: 0 0 4px;
@@ -1959,7 +2070,7 @@ h1, h2, .card-title, .drawer-header h2 {
 
 .workspace-tab {
   background: transparent;
-  border: none;
+  border: 1px solid transparent;
   color: var(--text-muted);
   padding: 7px 18px;
   font-size: 13px;
@@ -1968,11 +2079,11 @@ h1, h2, .card-title, .drawer-header h2 {
   border-radius: 999px;
   cursor: pointer;
 }
-.workspace-tab:hover { color: var(--text); }
+.workspace-tab:hover { color: var(--text); background: var(--surface-hover); }
 .workspace-tab.active {
-  background: var(--surface);
-  color: var(--text);
-  box-shadow: var(--shadow);
+  background: var(--accent-soft);
+  color: var(--accent);
+  border-color: var(--accent-border);
 }
 
 .workspace-body {
@@ -2027,7 +2138,7 @@ h1, h2, .card-title, .drawer-header h2 {
   color: inherit;
   width: 100%;
 }
-.list-item-card:hover { border-color: var(--accent); }
+.list-item-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); }
 
 .list-item-title {
   font-size: 14px;
@@ -2190,7 +2301,7 @@ h1, h2, .card-title, .drawer-header h2 {
 .board-tool-btn.active {
   background: var(--accent-tint);
   color: var(--accent);
-  border-color: rgba(236, 33, 39, 0.2);
+  border-color: var(--accent-border);
 }
 .board-tool-btn:disabled { opacity: 0.4; cursor: not-allowed; }
 
@@ -2300,7 +2411,7 @@ h1, h2, .card-title, .drawer-header h2 {
 .context-thickness-btn.active {
   background: var(--accent-tint);
   color: var(--accent);
-  border-color: rgba(236, 33, 39, 0.2);
+  border-color: var(--accent-border);
 }
 
 .context-delete-btn { margin-left: auto; }
@@ -2551,9 +2662,10 @@ h1, h2, .card-title, .drawer-header h2 {
 }
 
 .company-name {
-  font-family: "Raleway", "Segoe UI", sans-serif;
+  font-family: var(--font-sans);
   font-size: 18px;
   font-weight: 800;
+  letter-spacing: -0.01em;
   margin-bottom: 4px;
 }
 
@@ -2680,7 +2792,7 @@ h1, h2, .card-title, .drawer-header h2 {
   font: inherit;
   color: inherit;
 }
-.employee-card:hover { border-color: var(--accent); }
+.employee-card:hover { border-color: var(--accent); box-shadow: var(--shadow-md); }
 
 .employee-card-head {
   display: flex;
@@ -2807,6 +2919,24 @@ h1, h2, .card-title, .drawer-header h2 {
   white-space: pre-wrap;
   word-break: break-word;
   overflow: visible;
+}
+
+/* ---------- Kanban: промежуточные ширины (например, 1024px) ---------- */
+/* На широком desktop (~1280px+) 5 колонок остаются в grid и помещаются
+   без сжатия. Между мобильным свайпом (<=900px) и широким desktop
+   колонки при grid-раскладке становились слишком узкими и переносили
+   заголовки — переключаем доску на горизонтальный скролл с комфортной
+   минимальной шириной колонки вместо сжатия. */
+@media (min-width: 901px) and (max-width: 1279px) {
+  .board {
+    display: flex;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .column {
+    flex: 0 0 280px;
+    width: 280px;
+  }
 }
 
 /* ---------- Мобильная адаптация ---------- */
