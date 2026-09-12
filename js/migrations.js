@@ -1,7 +1,10 @@
 // Миграция данных приложения. Хранилище v1 (kanban-tasks-v1, просто массив задач)
 // переносится в единое состояние workspace-app-v2 с schemaVersion.
 
-import { DEMO_COMPANY, DEMO_USERS, createDemoCalendarEvents, createDemoAnnouncements } from './demo-data.js';
+import {
+  DEMO_COMPANY, DEMO_USERS, createDemoCalendarEvents, createDemoAnnouncements,
+  createDemoTasks, createDemoNotes, createDemoWhiteboards,
+} from './demo-data.js';
 
 export const STORAGE_KEY = 'workspace-app-v2';
 export const SCHEMA_VERSION = 2;
@@ -175,17 +178,26 @@ function normalizeNotification(n, state) {
 }
 
 function buildFreshState() {
+  // Реальные legacy-задачи (если пользователь уже пользовался старой доской) важнее
+  // demo-заполнения — при их наличии сидируем задачи из них, а не поверх них.
+  const migratedLegacyTasks = migrateLegacyTasksFromStorage();
   return {
     schemaVersion: SCHEMA_VERSION,
     company: normalizeCompany({ ...DEMO_COMPANY }),
     users: DEMO_USERS.map(u => normalizeUser({ ...u })),
-    tasks: migrateLegacyTasksFromStorage(),
+    tasks: migratedLegacyTasks.length > 0 ? migratedLegacyTasks : createDemoTasks(),
     calendarEvents: createDemoCalendarEvents(),
     announcements: createDemoAnnouncements().map(normalizeAnnouncement),
     notifications: [],
-    notes: [],
-    whiteboards: [],
+    notes: createDemoNotes(),
+    whiteboards: createDemoWhiteboards(),
   };
+}
+
+// Используется Store для "Reset demo data" (Owner-действие) — полностью пересобирает
+// state (включая demo seed), не трогая другие localStorage-ключи (сессию, legacy-ключ).
+export function createFreshState() {
+  return normalizeNotificationsOf(buildFreshState());
 }
 
 // normalizeNotification нужен полностью собранный state (tasks/calendarEvents/

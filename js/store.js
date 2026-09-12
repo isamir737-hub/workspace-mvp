@@ -1,7 +1,7 @@
 // Центральный Store: единственная точка доступа к состоянию приложения и localStorage.
 // UI-модули (kanban.js, app.js, ...) не должны обращаться к localStorage напрямую.
 
-import { loadOrMigrateState, STORAGE_KEY } from './migrations.js';
+import { loadOrMigrateState, createFreshState, STORAGE_KEY } from './migrations.js';
 
 const SESSION_KEY = 'workspace-session-v1';
 
@@ -10,6 +10,17 @@ let state = null;
 export function init() {
   state = loadOrMigrateState();
   persist();
+}
+
+// Owner-действие "Reset demo data" (см. app.js). Пересобирает state с нуля — тот же
+// demo seed, что при самом первом запуске. Сессию (SESSION_KEY) намеренно не трогаем:
+// у demo-пользователей стабильные id, поэтому текущий логин остаётся валиден после
+// сброса; если он был create-on-the-fly пользователем — auth.isAuthenticated() сам
+// обнаружит отсутствие пользователя и приложение вернётся на экран логина.
+export function resetDemoData() {
+  state = createFreshState();
+  const ok = persist();
+  return { ok };
 }
 
 function persist() {

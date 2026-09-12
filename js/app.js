@@ -32,6 +32,7 @@ const sidebarUserName = document.getElementById('sidebarUserName');
 const sidebarUserRole = document.getElementById('sidebarUserRole');
 const topbarUserAvatar = document.getElementById('topbarUserAvatar');
 const logoutBtn = document.getElementById('logoutBtn');
+const resetDemoDataBtn = document.getElementById('resetDemoDataBtn');
 
 let pendingCreateTask = false;
 
@@ -49,6 +50,8 @@ function updateUserChrome() {
   sidebarUserRole.textContent = roleLabel;
   topbarUserAvatar.textContent = label;
   topbarUserAvatar.title = user.name + ' · ' + roleLabel;
+  // Reset demo data — Owner-only действие (см. ensureResetConfirmModal ниже).
+  resetDemoDataBtn.hidden = user.role !== 'owner';
   // Текущий пользователь мог смениться (login/logout/demo user switching) —
   // badge должен сразу отражать unread count именно нового пользователя.
   notifications.refresh();
@@ -177,6 +180,72 @@ sidebarNewTaskBtn.addEventListener('click', () => {
     pendingCreateTask = true;
     router.navigate('kanban');
   }
+});
+
+// ---------- Reset demo data (Owner) ----------
+// Кастомный confirm-модал вместо window.confirm(). После подтверждения — полная
+// пересборка Store demo-seed'ом и location.reload(): это самый стабильный способ
+// гарантированно сбросить внутреннее состояние ВСЕХ модулей (kanban/company/notifications
+// и т.д. держат собственные DOM-ссылки и module-level кэши), не разбираясь, что именно
+// в каждом из них нужно перерисовать вручную. Сессия не трогается: demo-пользователи
+// имеют стабильные id, поэтому текущий логин остаётся валиден и после reload.
+let resetConfirmOverlay = null;
+
+function ensureResetConfirmModal() {
+  if (resetConfirmOverlay) return;
+
+  resetConfirmOverlay = document.createElement('div');
+  resetConfirmOverlay.className = 'confirm-modal-overlay';
+  resetConfirmOverlay.hidden = true;
+
+  const modal = document.createElement('div');
+  modal.className = 'confirm-modal';
+  modal.setAttribute('role', 'alertdialog');
+  modal.setAttribute('aria-modal', 'true');
+
+  const title = document.createElement('h2');
+  title.textContent = 'Сбросить demo-данные?';
+  modal.appendChild(title);
+
+  const body = document.createElement('p');
+  body.textContent = 'Все текущие задачи, встречи, заметки, доски и уведомления будут удалены и заменены исходным demo-набором. Это действие нельзя отменить.';
+  modal.appendChild(body);
+
+  const actions = document.createElement('div');
+  actions.className = 'confirm-modal-actions';
+  const cancelBtn = document.createElement('button');
+  cancelBtn.type = 'button';
+  cancelBtn.className = 'btn-secondary';
+  cancelBtn.textContent = 'Отмена';
+  cancelBtn.addEventListener('click', closeResetConfirmModal);
+  actions.appendChild(cancelBtn);
+  const confirmBtn = document.createElement('button');
+  confirmBtn.type = 'button';
+  confirmBtn.className = 'btn-danger';
+  confirmBtn.textContent = 'Сбросить данные';
+  confirmBtn.addEventListener('click', () => {
+    store.resetDemoData();
+    location.reload();
+  });
+  actions.appendChild(confirmBtn);
+  modal.appendChild(actions);
+
+  resetConfirmOverlay.appendChild(modal);
+  resetConfirmOverlay.addEventListener('click', (e) => { if (e.target === resetConfirmOverlay) closeResetConfirmModal(); });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !resetConfirmOverlay.hidden) closeResetConfirmModal();
+  });
+  document.body.appendChild(resetConfirmOverlay);
+}
+
+function closeResetConfirmModal() {
+  if (resetConfirmOverlay) resetConfirmOverlay.hidden = true;
+}
+
+resetDemoDataBtn.addEventListener('click', () => {
+  closeMobileSidebar();
+  ensureResetConfirmModal();
+  resetConfirmOverlay.hidden = false;
 });
 
 // ---------- Инициализация ----------

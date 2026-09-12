@@ -5,6 +5,7 @@
 import * as store from './store.js';
 import * as kanban from './kanban.js';
 import * as notifications from './notifications.js';
+import { showToast } from './toast.js';
 
 const WEEKDAY_LABELS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс'];
 const MONTH_CELL_MAX_ENTRIES = 3;
@@ -861,20 +862,25 @@ function wireEventDrawerEvents() {
       participantIds,
     };
 
+    let result;
     if (editingEventId) {
       const existing = store.getCalendarEvent(editingEventId);
       const oldParticipantIds = (existing && existing.participantIds) ? existing.participantIds.slice() : [];
-      const result = store.updateCalendarEvent(editingEventId, patch);
+      result = store.updateCalendarEvent(editingEventId, patch);
       if (result.ok) {
         // Уведомляем только вновь добавленных участников — не дублировать всем при каждом edit.
         const newlyAdded = participantIds.filter(id => !oldParticipantIds.includes(id));
         notifyEventParticipants(result.event, newlyAdded);
       }
     } else {
-      const result = store.createCalendarEvent(patch);
+      result = store.createCalendarEvent(patch);
       if (result.ok) notifyEventParticipants(result.event, result.event.participantIds);
     }
 
+    if (!result.ok) {
+      showToast('Ошибка сохранения', 'Не получилось сохранить событие — возможно, хранилище браузера переполнено.');
+      return;
+    }
     closeEventDrawer();
     renderCalendarBody();
   });

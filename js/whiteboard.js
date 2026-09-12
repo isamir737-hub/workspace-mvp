@@ -4,6 +4,7 @@
 // у новых полей — safe defaults (см. normalizeObject).
 
 import * as store from './store.js';
+import { showToast } from './toast.js';
 import { openShareDialog, buildSharingBadge, isVisibleToUser } from './sharing.js';
 
 const SVG_NS = 'http://www.w3.org/2000/svg';
@@ -233,9 +234,10 @@ function ensureCreateBoardDialog() {
     e.preventDefault();
     const title = createBoardInput.value.trim() || 'Untitled whiteboard';
     const result = store.createWhiteboard({ title, viewport: { x: 0, y: 0, zoom: 1 }, objects: [] });
+    if (!result.ok) { showToast('Ошибка сохранения', 'Не получилось создать доску — возможно, хранилище браузера переполнено.'); return; }
     const cb = form._onCreated;
     close();
-    if (result.ok && cb) cb(result.board.id);
+    if (cb) cb(result.board.id);
   });
 }
 
@@ -308,8 +310,11 @@ function normalizeObject(o) {
 
 export function renderBoardCanvas(container, boardId, { onBack }) {
   const board = store.getWhiteboard(boardId);
-  if (!board) { onBack(); return; }
   const currentUser = store.getCurrentUser();
+  // boardId может быть "унаследован" из view-state прошлой сессии (например, после
+  // demo user switching без полной перезагрузки страницы) — не показываем чужую
+  // приватную доску только потому, что её id остался в module-level state.
+  if (!board || !currentUser || !isVisibleToUser(board, currentUser)) { onBack(); return; }
   const isOwner = board.ownerId === currentUser.id;
 
   onBackCallback = onBack;
@@ -1201,7 +1206,8 @@ function flushBoardSave() {
     objects: cloneObjects(canvasState.objects),
     ...pendingBoardPatch,
   };
-  store.updateWhiteboard(canvasState.boardId, patch);
+  const result = store.updateWhiteboard(canvasState.boardId, patch);
+  if (!result.ok) showToast('Ошибка сохранения', 'Не получилось сохранить доску — возможно, хранилище браузера переполнено.');
   pendingBoardPatch = {};
 }
 

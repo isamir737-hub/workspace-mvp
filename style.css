@@ -474,6 +474,49 @@ h1, h2, .card-title, .drawer-header h2 {
   to { transform: translateX(0); opacity: 1; }
 }
 
+/* ---------- Confirm modal (напр. Reset demo data) — вместо window.confirm() ---------- */
+
+.confirm-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(17, 17, 17, 0.45);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  z-index: 220;
+}
+.confirm-modal-overlay[hidden] { display: none; }
+
+.confirm-modal {
+  background: var(--surface);
+  border-radius: 18px;
+  box-shadow: var(--shadow-md);
+  width: min(420px, 100%);
+  padding: 24px;
+  animation: drawer-in 0.18s ease-out;
+}
+
+.confirm-modal h2 {
+  margin: 0 0 10px;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.confirm-modal p {
+  margin: 0;
+  font-size: 13.5px;
+  color: var(--text-muted);
+  line-height: 1.5;
+}
+
+.confirm-modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 22px;
+}
+
 .drawer-header {
   display: flex;
   align-items: center;
@@ -880,6 +923,18 @@ h1, h2, .card-title, .drawer-header h2 {
 
 .login-brand {
   margin-bottom: 2px;
+}
+
+.demo-mode-badge {
+  background: var(--warning-tint);
+  color: var(--warning);
+  font-size: 10.5px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+  border-radius: 999px;
+  margin-left: 4px;
 }
 
 .login-card h1 {
@@ -1428,6 +1483,10 @@ h1, h2, .card-title, .drawer-header h2 {
   font-size: 13.5px;
   width: 170px;
   color: var(--text);
+}
+.kanban-search:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
 }
 
 .kanban-filters-toggle {
@@ -2034,7 +2093,7 @@ h1, h2, .card-title, .drawer-header h2 {
   flex-shrink: 0;
   color: var(--text);
 }
-.note-title-input:focus { outline: none; }
+.note-title-input:focus { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 .note-title-input:disabled { color: var(--text); opacity: 0.85; }
 
 .rich-toolbar {
@@ -2067,7 +2126,7 @@ h1, h2, .card-title, .drawer-header h2 {
   line-height: 1.6;
   padding: 4px 2px;
 }
-.note-content-editable:focus { outline: none; }
+.note-content-editable:focus { outline: 2px solid var(--accent); outline-offset: 2px; border-radius: 6px; }
 .note-content-editable.is-readonly { color: var(--text-muted); }
 .note-content-editable ul, .note-content-editable ol { padding-left: 22px; margin: 8px 0; }
 .note-content-editable p { margin: 0 0 8px; }

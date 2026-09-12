@@ -2,6 +2,7 @@
 
 import * as store from './store.js';
 import { openShareDialog, buildSharingBadge, isVisibleToUser } from './sharing.js';
+import { showToast } from './toast.js';
 
 const ICONS = {
   search: '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>',
@@ -56,7 +57,8 @@ function flushPendingNoteSave() {
     pendingNotePatch = {};
     return;
   }
-  store.updateNote(pendingNoteId, pendingNotePatch);
+  const result = store.updateNote(pendingNoteId, pendingNotePatch);
+  if (!result.ok) showToast('Ошибка сохранения', 'Не получилось сохранить заметку — возможно, хранилище браузера переполнено.');
   pendingNotePatch = {};
   pendingNoteId = null;
 }
@@ -103,7 +105,8 @@ export function renderNotesList(container, { onOpenNote }) {
   newBtn.innerHTML = '<span class="plus" aria-hidden="true">+</span> Новая заметка';
   newBtn.addEventListener('click', () => {
     const result = store.createNote({ title: '', content: '' });
-    if (result.ok && onOpenNoteCallback) onOpenNoteCallback(result.note.id);
+    if (!result.ok) { showToast('Ошибка сохранения', 'Не получилось создать заметку — возможно, хранилище браузера переполнено.'); return; }
+    if (onOpenNoteCallback) onOpenNoteCallback(result.note.id);
   });
   toolbar.appendChild(newBtn);
 
@@ -176,8 +179,11 @@ function buildNoteListItem(note, currentUser) {
 
 export function renderNoteEditor(container, noteId, { onBack }) {
   const note = store.getNote(noteId);
-  if (!note) { onBack(); return; }
   const currentUser = store.getCurrentUser();
+  // noteId может быть "унаследован" из view-state прошлой сессии (например, после
+  // demo user switching без полной перезагрузки страницы) — не показываем чужую
+  // приватную заметку только потому, что её id остался в module-level state.
+  if (!note || !currentUser || !isVisibleToUser(note, currentUser)) { onBack(); return; }
   const isOwner = note.ownerId === currentUser.id;
 
   const wrap = document.createElement('div');

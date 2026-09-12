@@ -3,6 +3,10 @@
 
 import * as store from './store.js';
 import * as notifications from './notifications.js';
+import { showToast } from './toast.js';
+
+const SAVE_ERROR_TITLE = 'Ошибка сохранения';
+const SAVE_ERROR_BODY = 'Не получилось сохранить изменения — возможно, хранилище браузера переполнено.';
 
 const ROLE_LABELS = { manager: 'Manager', employee: 'Employee' };
 const MAX_AVATAR_PX = 128;
@@ -579,7 +583,8 @@ function ensureCompanyEditDrawer() {
         .filter(c => c.name || c.role || c.contact),
     };
     if (pendingCompanyLogo !== undefined) patch.logo = pendingCompanyLogo;
-    store.updateCompany(patch);
+    const result = store.updateCompany(patch);
+    if (!result.ok) { showToast(SAVE_ERROR_TITLE, SAVE_ERROR_BODY); return; }
     close();
     if (currentTab === 'company') renderBody();
   });
@@ -1159,11 +1164,10 @@ function ensureEmployeeFormDrawer() {
     };
     if (pendingEmployeeAvatar !== undefined) patch.avatar = pendingEmployeeAvatar;
 
-    if (editingEmployeeId) {
-      store.updateUser(editingEmployeeId, patch);
-    } else {
-      store.createUser({ ...patch, active: true });
-    }
+    const result = editingEmployeeId
+      ? store.updateUser(editingEmployeeId, patch)
+      : store.createUser({ ...patch, active: true });
+    if (!result.ok) { showToast(SAVE_ERROR_TITLE, SAVE_ERROR_BODY); return; }
 
     close();
     if (currentTab === 'employees') renderEmployeeGrid();
@@ -1456,13 +1460,15 @@ function ensureAnnouncementFormDrawer() {
     if (!title) { annTitleInput.focus(); return; }
     if (!body) { annBodyInput.focus(); return; }
 
+    let result;
     if (editingAnnouncementId) {
       // Обычное редактирование существующего announcement — повторно не рассылаем.
-      store.updateAnnouncement(editingAnnouncementId, { title, body });
+      result = store.updateAnnouncement(editingAnnouncementId, { title, body });
     } else {
-      const result = store.createAnnouncement({ title, body });
+      result = store.createAnnouncement({ title, body });
       if (result.ok) notifyAnnouncementPublished(result.announcement);
     }
+    if (!result.ok) { showToast(SAVE_ERROR_TITLE, SAVE_ERROR_BODY); return; }
     close();
     if (currentTab === 'announcements') renderAnnouncementList();
   });
