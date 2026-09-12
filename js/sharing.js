@@ -85,8 +85,13 @@ export function openShareDialog(currentSharedWith) {
   return new Promise((resolve) => {
     const currentUser = store.getCurrentUser();
     listEl.innerHTML = '';
+    // Неактивных сотрудников не предлагаем для нового share — но уже расшаренному
+    // (историческому) пользователю всё равно даём остаться в списке отмеченным.
     const companyUsers = currentUser
-      ? store.getUsers().filter(u => u.companyId === currentUser.companyId && u.id !== currentUser.id)
+      ? store.getUsers().filter(u =>
+          u.companyId === currentUser.companyId && u.id !== currentUser.id &&
+          (u.active !== false || (currentSharedWith || []).includes(u.id))
+        )
       : [];
     if (companyUsers.length === 0) {
       const empty = document.createElement('div');

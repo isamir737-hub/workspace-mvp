@@ -659,7 +659,9 @@ function getExtension(filename) {
 // Owner может назначать задачу любому сотруднику компании; Manager — себе и Employee;
 // Employee — только себе.
 function getAssignableUsers(currentUser) {
-  const companyUsers = store.getUsers().filter(u => u.companyId === currentUser.companyId);
+  // Неактивных сотрудников не предлагаем для нового назначения — уже назначенный
+  // (в том числе неактивный) исполнитель всё равно сохраняется отдельной веткой ниже.
+  const companyUsers = store.getUsers().filter(u => u.companyId === currentUser.companyId && u.active !== false);
   if (currentUser.role === 'owner') return companyUsers;
   if (currentUser.role === 'manager') {
     return companyUsers.filter(u => u.id === currentUser.id || u.role === 'employee');

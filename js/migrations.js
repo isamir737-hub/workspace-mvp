@@ -81,14 +81,64 @@ function normalizeCalendarEvent(event) {
   };
 }
 
+// Этап 7 добавил Company/Employees/Announcements поля. Существующие users/company/
+// announcements (сохранённые до этого этапа) нормализуются здесь безопасными
+// дефолтами — ничего не теряем, id/email/role/createdAt не трогаем.
+function splitName(name) {
+  const parts = (name || '').trim().split(/\s+/).filter(Boolean);
+  return { firstName: parts[0] || '', lastName: parts.slice(1).join(' ') || '' };
+}
+
+function normalizeUser(user) {
+  const derived = (!user.firstName && !user.lastName) ? splitName(user.name) : {};
+  const firstName = user.firstName || derived.firstName || '';
+  const lastName = user.lastName !== undefined && user.lastName !== null ? user.lastName : (derived.lastName || '');
+  const name = user.name || `${firstName} ${lastName}`.trim();
+  return {
+    ...user,
+    firstName,
+    lastName,
+    name,
+    position: user.position || '',
+    department: user.department || '',
+    managerId: user.managerId || null,
+    phone: user.phone || '',
+    birthday: user.birthday || null,
+    avatar: user.avatar || null,
+    active: user.active !== undefined ? user.active : true,
+  };
+}
+
+function normalizeCompany(company) {
+  const base = company || {};
+  return {
+    ...DEMO_COMPANY,
+    ...base,
+    registration: { ...DEMO_COMPANY.registration, ...(base.registration || {}) },
+    banking: { ...DEMO_COMPANY.banking, ...(base.banking || {}) },
+    importantContacts: Array.isArray(base.importantContacts) ? base.importantContacts : [],
+  };
+}
+
+function normalizeAnnouncement(ann) {
+  const createdAt = ann.createdAt || new Date().toISOString();
+  return {
+    ...ann,
+    publishedAt: ann.publishedAt || createdAt,
+    active: ann.active !== undefined ? ann.active : true,
+    createdAt,
+    updatedAt: ann.updatedAt || createdAt,
+  };
+}
+
 function buildFreshState() {
   return {
     schemaVersion: SCHEMA_VERSION,
-    company: { ...DEMO_COMPANY },
-    users: DEMO_USERS.map(u => ({ ...u })),
+    company: normalizeCompany({ ...DEMO_COMPANY }),
+    users: DEMO_USERS.map(u => normalizeUser({ ...u })),
     tasks: migrateLegacyTasksFromStorage(),
     calendarEvents: createDemoCalendarEvents(),
-    announcements: createDemoAnnouncements(),
+    announcements: createDemoAnnouncements().map(normalizeAnnouncement),
     notifications: [],
     notes: [],
     whiteboards: [],
@@ -105,10 +155,11 @@ export function loadOrMigrateState() {
       const parsed = JSON.parse(raw);
       if (parsed && typeof parsed === 'object' && Array.isArray(parsed.tasks)) {
         parsed.schemaVersion = SCHEMA_VERSION;
-        if (!parsed.company) parsed.company = { ...DEMO_COMPANY };
+        parsed.company = normalizeCompany(parsed.company || { ...DEMO_COMPANY });
         if (!Array.isArray(parsed.users) || parsed.users.length === 0) {
           parsed.users = DEMO_USERS.map(u => ({ ...u }));
         }
+        parsed.users = parsed.users.map(normalizeUser);
         if (!Array.isArray(parsed.calendarEvents)) {
           parsed.calendarEvents = createDemoCalendarEvents();
         } else {
@@ -117,6 +168,7 @@ export function loadOrMigrateState() {
         if (!Array.isArray(parsed.announcements)) {
           parsed.announcements = createDemoAnnouncements();
         }
+        parsed.announcements = parsed.announcements.map(normalizeAnnouncement);
         if (!Array.isArray(parsed.notifications)) {
           parsed.notifications = [];
         }

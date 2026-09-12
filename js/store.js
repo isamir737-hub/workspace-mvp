@@ -34,6 +34,12 @@ export function getCompany() {
   return state.company;
 }
 
+export function updateCompany(patch) {
+  state.company = { ...state.company, ...patch };
+  const ok = persist();
+  return { ok, company: state.company };
+}
+
 // ---------- Календарь ----------
 
 export function getCalendarEvents() {
@@ -171,10 +177,43 @@ export function deleteWhiteboard(id) {
   return persist();
 }
 
-// ---------- Объявления (read-only demo-данные для Dashboard) ----------
+// ---------- Объявления компании ----------
 
 export function getAnnouncements() {
   return state.announcements;
+}
+
+export function getAnnouncement(id) {
+  return state.announcements.find(a => a.id === id) || null;
+}
+
+export function createAnnouncement(input) {
+  const now = new Date().toISOString();
+  const currentUser = getCurrentUser();
+  const announcement = {
+    id: generateId('ann'),
+    companyId: state.company.id,
+    title: '',
+    body: '',
+    authorId: currentUser ? currentUser.id : null,
+    publishedAt: now,
+    active: true,
+    createdAt: now,
+    updatedAt: now,
+    ...input,
+  };
+  state.announcements.push(announcement);
+  const ok = persist();
+  return { ok, announcement };
+}
+
+export function updateAnnouncement(id, patch) {
+  const announcement = getAnnouncement(id);
+  if (!announcement) return { ok: false, announcement: null };
+  Object.assign(announcement, patch);
+  announcement.updatedAt = new Date().toISOString();
+  const ok = persist();
+  return { ok, announcement };
 }
 
 // ---------- Уведомления (in-app, без отдельного Notifications Center на этом этапе) ----------
@@ -213,18 +252,44 @@ export function getUserByEmail(email) {
   return state.users.find(u => u.email.toLowerCase() === norm) || null;
 }
 
-export function createUser({ email, name, role }) {
+// input: {email, name?, firstName?, lastName?, role?, position?, department?,
+// managerId?, phone?, birthday?, avatar?, active?}. Возвращает {ok, user}, как и
+// остальные create*-методы Store.
+export function createUser(input) {
+  const now = new Date().toISOString();
+  const firstName = input.firstName || (input.name ? input.name.split(/\s+/)[0] : '') || '';
+  const lastName = input.lastName !== undefined ? input.lastName : (input.name ? input.name.split(/\s+/).slice(1).join(' ') : '') || '';
+  const name = input.name || `${firstName} ${lastName}`.trim() || (input.email ? input.email.split('@')[0] : '');
   const user = {
     id: generateId('user'),
     companyId: state.company.id,
-    name: name || email.split('@')[0],
-    email,
-    role: role || 'employee',
-    createdAt: new Date().toISOString(),
+    firstName,
+    lastName,
+    name,
+    email: input.email,
+    role: input.role || 'employee',
+    position: input.position || '',
+    department: input.department || '',
+    managerId: input.managerId || null,
+    phone: input.phone || '',
+    birthday: input.birthday || null,
+    avatar: input.avatar || null,
+    active: input.active !== undefined ? input.active : true,
+    createdAt: now,
+    updatedAt: now,
   };
   state.users.push(user);
-  persist();
-  return user;
+  const ok = persist();
+  return { ok, user };
+}
+
+export function updateUser(id, patch) {
+  const user = getUserById(id);
+  if (!user) return { ok: false, user: null };
+  Object.assign(user, patch);
+  user.updatedAt = new Date().toISOString();
+  const ok = persist();
+  return { ok, user };
 }
 
 // Если email соответствует известному пользователю — вернуть его, иначе создать
@@ -232,7 +297,7 @@ export function createUser({ email, name, role }) {
 export function findOrCreateUserByEmail(email) {
   const existing = getUserByEmail(email);
   if (existing) return existing;
-  return createUser({ email, name: email.split('@')[0], role: 'employee' });
+  return createUser({ email, name: email.split('@')[0], role: 'employee' }).user;
 }
 
 // ---------- Сессия (кто сейчас залогинен) ----------

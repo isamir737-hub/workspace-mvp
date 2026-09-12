@@ -7,12 +7,9 @@ import * as kanban from './kanban.js';
 import * as dashboard from './dashboard.js';
 import * as calendar from './calendar.js';
 import * as workspace from './workspace.js';
+import * as company from './company.js';
 
 const ROLE_LABELS = { owner: 'Owner', manager: 'Manager', employee: 'Employee' };
-
-const PAGE_META = {
-  company: { title: 'Компания', description: 'Управление компанией и сотрудниками появится здесь.' },
-};
 
 const loginScreen = document.getElementById('loginScreen');
 const loginForm = document.getElementById('loginForm');
@@ -39,23 +36,6 @@ let pendingCreateTask = false;
 
 function initials(name) {
   return name.split(/\s+/).filter(Boolean).slice(0, 2).map(p => p[0]).join('').toUpperCase();
-}
-
-function renderPlaceholder(container, meta) {
-  container.className = 'main-content';
-  container.innerHTML = '';
-  const wrap = document.createElement('div');
-  wrap.className = 'page-placeholder';
-  const h2 = document.createElement('h2');
-  h2.textContent = meta.title;
-  wrap.appendChild(h2);
-  const p1 = document.createElement('p');
-  p1.textContent = meta.description;
-  wrap.appendChild(p1);
-  const p2 = document.createElement('p');
-  p2.textContent = 'Раздел будет добавлен на следующем этапе.';
-  wrap.appendChild(p2);
-  container.appendChild(wrap);
 }
 
 function updateUserChrome() {
@@ -108,9 +88,8 @@ function renderRoute(route) {
     workspace.renderWorkspacePage(mainContent);
     return;
   }
-  const meta = PAGE_META[route];
-  pageTitle.textContent = meta.title;
-  renderPlaceholder(mainContent, meta);
+  pageTitle.textContent = 'Компания';
+  company.renderCompanyPage(mainContent);
 }
 
 function handleRouteChange() {

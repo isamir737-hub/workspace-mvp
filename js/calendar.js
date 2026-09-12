@@ -659,7 +659,11 @@ function renderParticipantList(selectedIds) {
   participantListEl.innerHTML = '';
   const currentUser = store.getCurrentUser();
   if (!currentUser) return;
-  const companyUsers = store.getUsers().filter(u => u.companyId === currentUser.companyId);
+  // Неактивных сотрудников не предлагаем для новых участников — но уже выбранного
+  // (исторического) участника всё равно показываем, даже если он стал неактивен.
+  const companyUsers = store.getUsers().filter(u =>
+    u.companyId === currentUser.companyId && (u.active !== false || selectedIds.includes(u.id))
+  );
   if (companyUsers.length === 0) {
     const empty = document.createElement('div');
     empty.className = 'comments-empty';

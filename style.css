@@ -526,6 +526,8 @@ h1, h2, .card-title, .drawer-header h2 {
 
 .field input[type="text"],
 .field input[type="email"],
+.field input[type="tel"],
+.field input[type="date"],
 .field input[type="datetime-local"],
 .field textarea,
 .field select {
@@ -882,6 +884,25 @@ h1, h2, .card-title, .drawer-header h2 {
   width: 30px;
   height: 30px;
   font-size: 11px;
+}
+
+.avatar-lg {
+  width: 48px;
+  height: 48px;
+  font-size: 15px;
+}
+
+.avatar-xl {
+  width: 72px;
+  height: 72px;
+  font-size: 20px;
+}
+
+.avatar img {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
 }
 
 .sidebar-overlay {
@@ -2237,6 +2258,346 @@ h1, h2, .card-title, .drawer-header h2 {
 }
 .board-line-handle.is-readonly { pointer-events: none; }
 
+/* ---------- Company / Employees / Announcements (#/company) ---------- */
+
+.main-content.company-page {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.company-tab-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px 20px 20px;
+}
+/* .ws-list-page уже несёт свой padding для страницы Notes/Whiteboards — внутри
+   .company-tab-body он не нужен (там его уже даёт сам company-tab-body). */
+.company-tab-body .ws-list-page {
+  padding: 0;
+}
+
+.company-header-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.company-profile {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.company-section {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.company-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.company-about-row {
+  display: flex;
+  gap: 16px;
+  align-items: flex-start;
+}
+
+.company-logo {
+  width: 64px;
+  height: 64px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+.company-logo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.company-about-text {
+  min-width: 0;
+}
+
+.company-name {
+  font-family: "Raleway", "Segoe UI", sans-serif;
+  font-size: 18px;
+  font-weight: 800;
+  margin-bottom: 4px;
+}
+
+.company-description {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13.5px;
+  line-height: 1.5;
+}
+
+.company-detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 12px 20px;
+}
+
+.company-detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.company-detail-label {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  color: var(--text-muted);
+}
+
+.company-detail-value {
+  font-size: 14px;
+  color: var(--text);
+  word-break: break-word;
+}
+
+.company-contacts-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.company-contact-item {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 14px;
+  padding: 10px 12px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 13px;
+}
+
+.company-contact-name {
+  font-weight: 700;
+}
+
+.company-contact-role {
+  color: var(--text-muted);
+}
+
+/* Company edit drawer: загрузка логотипа/фото */
+
+.avatar-upload-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.avatar-upload-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  align-items: flex-start;
+}
+
+.contacts-edit-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.contact-edit-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.contact-edit-row input {
+  font: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  flex: 1;
+  min-width: 0;
+}
+
+/* Employees: список/сетка переиспользует .ws-list-page/.list-toolbar/.kanban-search/.filter-field выше */
+
+.employee-grid-wrap {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.employee-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: 14px;
+  padding-bottom: 8px;
+}
+
+.employee-card {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px;
+  text-align: left;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+}
+.employee-card:hover { border-color: var(--accent); }
+
+.employee-card-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.employee-card-name {
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.employee-card-position {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.employee-card-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.employee-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  font-size: 12px;
+  color: var(--text-muted);
+  overflow: hidden;
+}
+.employee-card-meta span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Employee detail drawer */
+
+.employee-detail-head {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  margin-bottom: 6px;
+}
+
+.employee-detail-name {
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.employee-detail-rows {
+  display: flex;
+  flex-direction: column;
+}
+
+.employee-detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+  font-size: 13.5px;
+  padding: 9px 0;
+  border-bottom: 1px solid var(--border);
+}
+.employee-detail-row:last-child { border-bottom: none; }
+
+.employee-detail-label {
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.employee-detail-value {
+  font-weight: 600;
+  text-align: right;
+  word-break: break-word;
+}
+
+/* Two-step confirm (деактивация/архивирование) — без browser confirm()/alert() */
+
+.btn-danger.is-armed {
+  background: var(--accent);
+  color: #fff;
+  border-color: var(--accent);
+}
+
+/* Announcements: админ-список переиспользует .ws-list-page/.list-item-title/.list-item-meta/.list-item-preview выше */
+
+.announcement-admin-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  overflow-y: auto;
+  min-height: 0;
+  padding-bottom: 8px;
+}
+
+.announcement-admin-item {
+  background: var(--surface-sunken);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.announcement-admin-title-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.announcement-admin-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+
+.announcement-admin-body {
+  font-size: 13px;
+  color: var(--text);
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow: visible;
+}
+
 /* ---------- Мобильная адаптация ---------- */
 
 @media (max-width: 900px) {
@@ -2350,5 +2711,24 @@ h1, h2, .card-title, .drawer-header h2 {
   }
   .drawer {
     width: 100vw;
+  }
+  .company-tab-body {
+    padding: 4px 14px 14px;
+  }
+  .company-about-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+  .company-detail-grid {
+    grid-template-columns: 1fr;
+  }
+  .employee-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .employee-grid {
+    grid-template-columns: 1fr;
   }
 }

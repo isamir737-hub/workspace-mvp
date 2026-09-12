@@ -516,7 +516,7 @@ function buildAnnouncementItem(ann) {
   const author = store.getUserById(ann.authorId);
   const meta = document.createElement('div');
   meta.className = 'announcement-meta';
-  meta.textContent = (author ? author.name : 'Компания') + ' · ' + formatShortDate(ann.createdAt);
+  meta.textContent = (author ? author.name : 'Компания') + ' · ' + formatShortDate(ann.publishedAt || ann.createdAt);
   item.appendChild(meta);
 
   return item;
@@ -526,7 +526,13 @@ function buildAnnouncementsCard() {
   const card = buildCard('Объявления компании');
   card.classList.add('span-2');
 
-  const announcements = store.getAnnouncements().slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+  // Dashboard показывает только активные объявления (архивные скрываются) и только
+  // последние несколько — полный список/архив управляется в #/company.
+  const announcements = store.getAnnouncements()
+    .filter(a => a.active !== false)
+    .slice()
+    .sort((a, b) => new Date(b.publishedAt || b.createdAt) - new Date(a.publishedAt || a.createdAt))
+    .slice(0, 5);
   if (announcements.length === 0) {
     const empty = document.createElement('p');
     empty.className = 'dashboard-empty';
